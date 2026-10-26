@@ -10,6 +10,10 @@ retrieval, nightly reflection into beliefs, directed relationships, gossip, jeal
 apologies, open threads → focus → fight readiness — with swappable cognition providers
 ready for LLM-driven minds.
 
+Milestone 1 (first pass): a deterministic headless **1v1 arena** where contact is decided by
+body geometry and stance, choices by personality and learned experience, and reactions by
+how focused the fighter is after their week at home.
+
 ## Running
 
 Requires Node 22+.
@@ -24,6 +28,11 @@ npm run sim -- --days 21 --kitchens 2
 npm run sim -- --compare          # same fighters, one vs two kitchens
 npm run sim -- --inspect bob      # print Bob's LLM-ready mind context
 npm run sim -- --verbose          # every event, including chats and meals
+npm run sim -- --journal martha --inbox   # read a journal and the manager's inbox
+
+npm run fight -- --a brick --b shell --log        # sparring gym, play-by-play
+npm run fight -- --a duke --b shell --rounds 4    # watch learning across fights
+npm run fight -- --scenario love-triangle --days 14 --a bob --b jin   # after two weeks of drama
 ```
 
 In the love-triangle scenario only one thing is scripted: Bob gets injured on day 2.

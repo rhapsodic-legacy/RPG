@@ -478,6 +478,19 @@ Separate from episodic memory: fighters learn what works.
 - Repeated defeats by a technique can unlock learning a counter (signature moves come from
   personal history).
 
+### 6.3a Implemented (first pass)
+
+- 9 shared moves (jab, straight, hook, uppercut, body blow, low kick, roundhouse, hammer fist,
+  throw), each a band of height scaled to the attacker's current height and stance.
+- Contact is pure geometry: reach (with a grazing tip), vertical overlap with the defender's
+  head/torso/legs in their stance, guards by stance (standing guards miss low kicks,
+  crouching guards miss overheads), throws fail on much heavier or braced-crouching opponents.
+- Home → arena: focus sets reaction delay, decision speed and how quickly openings are
+  noticed; resentment and anger seed in-fight rage, fear seeds fear.
+- Learning: per move × opponent stance expected value, plus how dangerous each incoming move
+  has been. Learning rate from curiosity/discipline vs ego. Curiosity also drives trying
+  untested moves; impatience builds for aggressive fighters when nothing lands.
+
 ### 6.4 Combat → memory
 
 Fights emit `WorldEvent`s: rescues, abandonments, humiliations, comebacks, knockouts, the
@@ -566,7 +579,7 @@ Milestones 1 and 2 are independent and can be built in parallel.
 
 | # | Milestone | Proves |
 |---|---|---|
-| 1 | **Headless 1v1 combat** — geometry, stances, contact quality, 3 temperament axes | Personality + body produce visibly different fights (the crouch-vs-punch effect) |
+| 1 | **Headless 1v1 combat** — geometry, stances, contact quality, personality-driven choices, matchup learning, focus from home ✅ *first pass done* | Personality + body produce visibly different fights (the crouch-vs-punch effect) |
 | 2 | **Headless social sim** — events, perception, appraisal, memory, retrieval, reflection, relationships, gossip, encounters, apologies; text log output; LLM seams ✅ *first pass done* | Bob/Jin/Martha-style drama emerges unscripted |
 | 2b | **Lies & manipulation, gifts, mediation** — fabricated gossip with provenance the player can trace; player social actions | Pot-stirring is discoverable and counterable |
 | 3 | **3v3 combat** + team behaviour + combat → memory events | Relationships change fights |

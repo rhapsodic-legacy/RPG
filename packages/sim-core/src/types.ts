@@ -2,6 +2,7 @@
 // state can be snapshotted (PvP), hashed (determinism checks) and handed to
 // external minds (LLMs) as context.
 
+import type { CombatKnowledge } from './combat/types';
 import type { EmotionVector } from './emotion';
 import type { Temperament } from './temperament';
 import type { Tick } from './time';
@@ -201,6 +202,8 @@ export interface Fighter {
   beliefs: Belief[];
   threads: Thread[];
   diary: DiaryEntry[];
+  /** What this fighter has learned in the arena about their own moves. */
+  combat: CombatKnowledge;
 }
 
 // ---------------------------------------------------------------- events

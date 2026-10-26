@@ -1,3 +1,4 @@
+import { emptyKnowledge } from '../combat/knowledge';
 import { zeroEmotions } from '../emotion';
 import type {
   FighterDef,
@@ -68,6 +69,7 @@ export function createState(scenario: Scenario): SimState {
       beliefs: [],
       threads: [],
       diary: [],
+      combat: emptyKnowledge(),
     };
   }
 
