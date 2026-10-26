@@ -1,27 +1,50 @@
 // Rule-based social behaviour: whom to engage, and how, when sharing a room.
 
 import { GOSSIP_WORTHY, recencyOf } from '../../mind/memory';
+import { unaddressedGrievance } from '../../sim/perception';
 import type { FighterId, SimState } from '../../types';
 import { unit } from '../../util/math';
 import { bond, cooldownReady, getFighter, partnerOf, peekRel } from '../../world';
-import type { InteractionChoice, InteractionPolicy } from '../providers';
+import type { ConfrontationResponse, InteractionChoice, InteractionPolicy } from '../providers';
 
 /** Minimum utility for a fighter to bother engaging at all. */
 const THRESHOLD = 0.25;
-
-/** Event types worth passing on. */
 
 export function interactionCooldownKey(kind: string, actor: FighterId, target: FighterId): string {
   return `${kind}:${actor}>${target}`;
 }
 
-/** Will `target` accept an apology from `actor`? Deterministic, personality-driven. */
-export function acceptsApology(state: SimState, target: FighterId, actor: FighterId): boolean {
-  const t = getFighter(state, target).temperament;
-  const r = peekRel(state, target, actor);
-  const willingness =
-    0.25 + 0.4 * unit(t.loyalty) + 0.3 * r.familiarity + 0.2 * r.respect - r.resentment * (0.3 + 0.5 * unit(t.ego)) - 0.2 * unit(t.volatility);
-  return willingness > 0;
+/**
+ * "I've already apologised for that": an accepted apology covers everything up to
+ * it, until something new goes wrong between us.
+ */
+export function alreadyMadeAmends(state: SimState, actor: FighterId, other: FighterId): boolean {
+  const at = state.cooldowns[`apology_ok:${actor}>${other}`];
+  if (at === undefined) return false;
+  return !getFighter(state, actor).memories.some(
+    (m) => m.createdAt > at && m.valence < 0 && m.entities.includes(other) && !m.tags.includes('apology'),
+  );
+}
+
+/**
+ * The urge to have it out with someone: unvoiced grievances and anger, held back
+ * by discipline, pragmatism (a divided team loses) and fear.
+ */
+export function confrontUtility(state: SimState, actor: FighterId, other: FighterId): number {
+  const me = getFighter(state, actor);
+  const t = me.temperament;
+  const r = peekRel(state, actor, other);
+  const grievance = unaddressedGrievance(state, actor, other);
+  const drive =
+    grievance * (0.5 + 0.5 * unit(t.aggression) + 0.3 * unit(t.volatility)) + r.resentment * me.state.mood.anger * 0.6;
+  const restraint =
+    0.25 * unit(t.discipline) +
+    0.3 * unit(t.pragmatism) +
+    r.fear * (1 - unit(t.courage)) +
+    0.15 * (1 - unit(t.courage)) +
+    // You think twice before tearing into a friend.
+    Math.max(0, r.affection) * unit(t.loyalty) * 0.5;
+  return drive - restraint;
 }
 
 /**
@@ -60,14 +83,59 @@ export function bestGossip(
 export class RuleInteractionPolicy implements InteractionPolicy {
   readonly id = 'rules.interaction';
 
+  strikesFirst(state: SimState, initiator: FighterId, target: FighterId): boolean {
+    const f = getFighter(state, initiator);
+    const t = f.temperament;
+    const rage =
+      f.state.mood.anger * (0.5 + unit(t.volatility)) +
+      peekRel(state, initiator, target).resentment * unit(t.aggression) -
+      0.5 * unit(t.discipline) -
+      0.3 * unit(t.pragmatism);
+    return rage > 0.8;
+  }
+
+  respondToConfrontation(state: SimState, target: FighterId, initiator: FighterId): ConfrontationResponse {
+    const f = getFighter(state, target);
+    const t = f.temperament;
+    const r = peekRel(state, target, initiator);
+    const heat =
+      r.resentment +
+      f.state.mood.anger * 0.5 +
+      0.3 * unit(t.aggression) +
+      0.3 * unit(t.volatility) +
+      0.2 * unit(t.ego) -
+      0.3 * unit(t.discipline) -
+      0.3 * unit(t.pragmatism) -
+      r.fear * (1 - unit(t.courage));
+    if (heat > 1.1 && unit(t.courage) > 0.4) return 'fought_back';
+    if (heat > 0.45) return 'argued_back';
+    return 'walked_away';
+  }
+
+  acceptsApology(state: SimState, target: FighterId, actor: FighterId): boolean {
+    const t = getFighter(state, target).temperament;
+    const r = peekRel(state, target, actor);
+    const willingness =
+      0.25 +
+      0.4 * unit(t.loyalty) +
+      0.3 * unit(t.pragmatism) +
+      0.3 * r.familiarity +
+      0.2 * r.respect -
+      r.resentment * (0.3 + 0.5 * unit(t.ego)) -
+      0.2 * unit(t.volatility);
+    return willingness > 0;
+  }
+
   choose(state: SimState, actor: FighterId, present: FighterId[]): InteractionChoice | null {
     const me = getFighter(state, actor);
     const t = me.temperament;
     const myPartner = partnerOf(state, actor);
     let best: InteractionChoice | null = null;
-    const consider = (choice: InteractionChoice, cooldown: number) => {
+    // `pacing` stops the same small gesture (a chat, a flirt) repeating every half
+    // hour; it is not a limit on any psychological process.
+    const consider = (choice: InteractionChoice, pacing = 0) => {
       if (choice.utility < THRESHOLD) return;
-      if (!cooldownReady(state, interactionCooldownKey(choice.kind, actor, choice.target), cooldown)) return;
+      if (pacing && !cooldownReady(state, interactionCooldownKey(choice.kind, actor, choice.target), pacing)) return;
       if (!best || choice.utility > best.utility) best = choice;
     };
 
@@ -106,7 +174,7 @@ export class RuleInteractionPolicy implements InteractionPolicy {
         back.attraction >= 0.5 &&
         r.familiarity >= 0.3
       ) {
-        consider({ kind: 'ask_out', target: other, utility: 1 + r.attraction }, 12);
+        consider({ kind: 'ask_out', target: other, utility: 1 + r.attraction });
       }
 
       if (myPartner === other) {
@@ -115,34 +183,39 @@ export class RuleInteractionPolicy implements InteractionPolicy {
 
       const sadness = getFighter(state, other).state.mood.sadness;
       if (sadness > 0.3 && r.affection > 0.3 && !guiltyAbout) {
-        consider({ kind: 'comfort', target: other, utility: 0.3 + sadness * 0.5 + 0.2 * unit(t.loyalty) }, 8);
+        consider({ kind: 'comfort', target: other, utility: 0.3 + sadness * 0.5 + 0.2 * unit(t.loyalty) });
       }
 
-      // Make amends when guilt outweighs grievance.
+      // Make amends: out of guilt, or because a feud costs the team. Having already
+      // been turned away (an unaddressed grievance against them) makes it harder.
       const guilt = me.threads.find((th) => th.kind === 'guilt' && th.about[0] === other)?.weight ?? 0;
       const theirGrievance = back.resentment;
-      if ((guilt > 0 || theirGrievance > 0.3) && r.resentment < 0.6 + guilt) {
-        consider(
-          {
-            kind: 'apologize',
-            target: other,
-            utility: 0.2 + guilt * (1 + unit(t.loyalty)) + theirGrievance * 0.6 * unit(t.discipline) - 0.3 * unit(t.ego) - r.resentment * 0.5,
-          },
-          3 * 48,
-        );
+      const rebuffed = unaddressedGrievance(state, actor, other);
+      if ((guilt > 0 || theirGrievance > 0.3) && !alreadyMadeAmends(state, actor, other)) {
+        consider({
+          kind: 'apologize',
+          target: other,
+          utility:
+            0.2 +
+            guilt * (1 + unit(t.loyalty)) +
+            theirGrievance * 0.4 * (unit(t.discipline) + unit(t.pragmatism)) -
+            0.3 * unit(t.ego) -
+            r.resentment * 0.5 -
+            rebuffed,
+        });
       }
+
+      const confront = confrontUtility(state, actor, other);
+      if (confront > 0) consider({ kind: 'confront', target: other, utility: confront });
 
       const gossip = bestGossip(state, actor, other);
       if (gossip && gossip.juiciness >= 0.15) {
-        consider(
-          {
-            kind: 'gossip',
-            target: other,
-            utility: 0.3 + gossip.juiciness * 1.5 * (0.4 + 0.6 * unit(t.sociability)),
-            aboutEventId: gossip.eventId,
-          },
-          8,
-        );
+        consider({
+          kind: 'gossip',
+          target: other,
+          utility: 0.3 + gossip.juiciness * 1.5 * (0.4 + 0.6 * unit(t.sociability)),
+          aboutEventId: gossip.eventId,
+        });
       }
     }
     return best;

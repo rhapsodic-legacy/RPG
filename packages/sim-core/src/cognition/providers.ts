@@ -30,6 +30,7 @@ import type {
   EntityId,
   FighterId,
   Memory,
+  Message,
   MemorySource,
   RelDelta,
   RoomId,
@@ -90,7 +91,15 @@ export interface ActivityPolicy {
 
 // ---------------------------------------------------------------- social
 
-export type InteractionKind = 'chat' | 'flirt' | 'ask_out' | 'affection_display' | 'gossip' | 'comfort' | 'apologize';
+export type InteractionKind =
+  | 'chat'
+  | 'flirt'
+  | 'ask_out'
+  | 'affection_display'
+  | 'gossip'
+  | 'comfort'
+  | 'apologize'
+  | 'confront';
 
 export interface InteractionChoice {
   kind: InteractionKind;
@@ -100,10 +109,16 @@ export interface InteractionChoice {
   aboutEventId?: string;
 }
 
-/** Decides whether and how a fighter engages someone in the same room. */
+export type ConfrontationResponse = 'walked_away' | 'argued_back' | 'fought_back';
+
+/** Decides whether and how a fighter engages someone in the same room, and how they respond. */
 export interface InteractionPolicy {
   readonly id: string;
   choose(state: SimState, actor: FighterId, present: FighterId[]): InteractionChoice | null;
+  /** Does the confronter go straight to violence? */
+  strikesFirst(state: SimState, initiator: FighterId, target: FighterId): boolean;
+  respondToConfrontation(state: SimState, target: FighterId, initiator: FighterId): ConfrontationResponse;
+  acceptsApology(state: SimState, target: FighterId, actor: FighterId): boolean;
 }
 
 // ---------------------------------------------------------------- reflection
@@ -157,6 +172,22 @@ export interface Narrator {
   describe(event: Omit<WorldEvent, 'gloss'>, state: SimState): string;
 }
 
+// ---------------------------------------------------------------- voice
+
+/** Writes a fighter's nightly journal entry, from what happened and how they feel. */
+export interface Diarist {
+  readonly id: string;
+  write(state: SimState, fighter: FighterId, since: number): string | null;
+}
+
+export type MessageDraft = Omit<Message, 'id' | 'tick' | 'from'>;
+
+/** Decides whether a fighter writes to the manager, and what they say. */
+export interface Correspondent {
+  readonly id: string;
+  compose(state: SimState, fighter: FighterId): MessageDraft[];
+}
+
 export interface CognitionProviders {
   appraiser: Appraiser;
   activity: ActivityPolicy;
@@ -165,4 +196,6 @@ export interface CognitionProviders {
   utterance: UtteranceInterpreter;
   relevance: RelevanceScorer;
   narrator: Narrator;
+  diarist: Diarist;
+  correspondent: Correspondent;
 }

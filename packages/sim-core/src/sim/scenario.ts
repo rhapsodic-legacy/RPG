@@ -37,6 +37,7 @@ export function createState(scenario: Scenario): SimState {
     kitchens: structuredClone(scenario.kitchens),
     chemistry: {},
     events: [],
+    inbox: [],
     nextEventId: 0,
     nextMemoryId: 0,
     cooldowns: {},
@@ -59,12 +60,14 @@ export function createState(scenario: Scenario): SimState {
         focus: 1,
         intents: [],
         importanceSinceReflection: 0,
+        raisedTopics: [],
       },
       relationships: {},
       memories: [],
       known: [],
       beliefs: [],
       threads: [],
+      diary: [],
     };
   }
 

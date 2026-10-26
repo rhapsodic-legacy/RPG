@@ -20,6 +20,30 @@ export function zeroEmotions(): EmotionVector {
   return e;
 }
 
+/**
+ * Feelings are only ever changed by other feelings: new experiences add to what a
+ * fighter feels and counteract opposing feelings. Nothing fades on its own.
+ */
+const COUNTERS: Record<Emotion, Partial<Record<Emotion, number>>> = {
+  joy: { sadness: 0.5, fear: 0.2, shame: 0.2 },
+  affection: { anger: 0.3, jealousy: 0.2, sadness: 0.2 },
+  gratitude: { anger: 0.4, shame: 0.2, sadness: 0.2 },
+  anger: { joy: 0.3, affection: 0.2 },
+  fear: { joy: 0.3 },
+  shame: { joy: 0.3 },
+  jealousy: { affection: 0.3, joy: 0.2 },
+  sadness: { joy: 0.5 },
+};
+
+export function feel(mood: EmotionVector, incoming: EmotionVector, k: number): void {
+  for (const e of EMOTIONS) {
+    const v = incoming[e] * k;
+    if (v <= 0) continue;
+    mood[e] = Math.min(1, mood[e] + v * (1 - mood[e]));
+    for (const [o, c] of Object.entries(COUNTERS[e]) as [Emotion, number][]) mood[o] = Math.max(0, mood[o] - v * c);
+  }
+}
+
 export function addScaled(into: EmotionVector, add: EmotionVector, k: number): void {
   for (const e of EMOTIONS) into[e] = Math.max(0, Math.min(1, into[e] + add[e] * k));
 }

@@ -23,6 +23,8 @@ export interface Room {
   id: RoomId;
   kind: RoomKind;
   name: string;
+  /** 0..1, how pleasant the room is (bedrooms: how well you sleep). Default 0.5. */
+  comfort?: number;
 }
 
 export interface HouseLayout {
@@ -95,6 +97,11 @@ export interface Memory {
   createdAt: Tick;
   lastRecalled: Tick;
   core: boolean;
+  /**
+   * For grievances: the fighter has since voiced it (confronted the person). The
+   * resentment stays; the urge to have it out does not.
+   */
+  addressed?: boolean;
   /** Natural-language rendering, used by UI, retrieval-for-chat and LLM prompts. */
   gloss: string;
 }
@@ -139,6 +146,32 @@ export interface Intent {
   reason?: string;
 }
 
+/** A private journal entry, readable by the player. */
+export interface DiaryEntry {
+  tick: Tick;
+  text: string;
+}
+
+export type SuggestionKind = 'build_room' | 'second_kitchen' | 'separate_schedules' | 'change_cook' | 'talk_to';
+
+export interface Suggestion {
+  kind: SuggestionKind;
+  about: EntityId[];
+  text: string;
+}
+
+/** A message from a fighter to the manager. */
+export interface Message {
+  id: string;
+  tick: Tick;
+  from: FighterId;
+  topic: string;
+  about: EntityId[];
+  subject: string;
+  body: string;
+  suggestions: Suggestion[];
+}
+
 export interface FighterState {
   location: RoomId;
   activity: Activity;
@@ -152,6 +185,8 @@ export interface FighterState {
   focus: number;
   intents: Intent[];
   importanceSinceReflection: number;
+  /** Topics already raised with the manager, so the same letter isn't sent twice. */
+  raisedTopics: string[];
 }
 
 export interface Fighter {
@@ -165,6 +200,7 @@ export interface Fighter {
   known: string[];
   beliefs: Belief[];
   threads: Thread[];
+  diary: DiaryEntry[];
 }
 
 // ---------------------------------------------------------------- events
@@ -220,6 +256,8 @@ export interface WorldEvent {
   gloss: string;
   meal?: { cook: FighterId | null; quality: number };
   gossip?: { aboutEventId: string };
+  /** How the target of a confrontation responded. */
+  confrontation?: { response: 'walked_away' | 'argued_back' | 'fought_back' | 'struck_first' };
   apology?: { accepted: boolean };
   injury?: { days: number; cause: string };
   utterance?: {
@@ -245,6 +283,7 @@ export interface SimState {
   /** Romantic chemistry per unordered pair ("a|b"); attraction grows toward it. */
   chemistry: Record<string, number>;
   events: WorldEvent[];
+  inbox: Message[];
   nextEventId: number;
   nextMemoryId: number;
   cooldowns: Record<string, Tick>;

@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { loveTriangle, loveTriangleSchedule, Simulation, type WorldEvent } from '@rpg/sim-core';
-import { inspect, narrate, readinessTable, relationshipTable } from './report';
+import { inbox, inspect, journal, narrate, readinessTable, relationshipTable } from './report';
 
 const { values } = parseArgs({
   options: {
@@ -8,6 +8,8 @@ const { values } = parseArgs({
     kitchens: { type: 'string', default: '1' },
     verbose: { type: 'boolean', default: false },
     inspect: { type: 'string', multiple: true, default: [] },
+    journal: { type: 'string', multiple: true, default: [] },
+    inbox: { type: 'boolean', default: false },
     compare: { type: 'boolean', default: false },
   },
 });
@@ -50,5 +52,7 @@ if (values.compare) {
   console.log(narrate(events, values.verbose));
   console.log(relationshipTable(sim));
   console.log(readinessTable(sim));
+  for (const id of values.journal) console.log(journal(sim, id));
+  if (values.inbox) console.log(inbox(sim));
   for (const id of values.inspect) console.log(inspect(sim, id));
 }

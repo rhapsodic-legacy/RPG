@@ -14,6 +14,8 @@ export const TEMPERAMENT_AXES = [
   'sociability',
   'curiosity',
   'romance',
+  // Awareness that winning together means a better life for everyone, and caring about it.
+  'pragmatism',
 ] as const;
 
 export type TemperamentAxis = (typeof TEMPERAMENT_AXES)[number];
@@ -96,6 +98,18 @@ export const TRAITS: readonly Trait[] = [
     label: 'Skittish',
     description: 'avoids confrontation',
     test: (t) => t.courage <= -0.3,
+  },
+  {
+    id: 'negotiator',
+    label: 'Negotiator',
+    description: 'keeps the peace because a united team wins, and winning pays',
+    test: (t) => t.pragmatism >= 0.5,
+  },
+  {
+    id: 'loose_cannon',
+    label: 'Loose Cannon',
+    description: "doesn't care what conflict costs the team",
+    test: (t) => t.pragmatism <= -0.5,
   },
   {
     id: 'student',

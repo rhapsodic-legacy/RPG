@@ -20,3 +20,5 @@ export * from './sim/scenario';
 export * from './sim/simulation';
 export * from './scenarios/love-triangle';
 export * from './sim/perception';
+export * from './mind/teams';
+export { RuleDiarist, RuleCorrespondent } from './cognition/rules/voice';

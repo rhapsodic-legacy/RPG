@@ -362,13 +362,17 @@ export class RuleAppraiser implements Appraiser {
       if (att < 0.35) continue;
       const jealousy = ((att - 0.3) / 0.7) * weight;
       const friendship = Math.max(0, peekRel(state, me, rival).affection);
+      // A crush can't fairly blame an established couple; an ex or partner can.
+      const mine = peekRel(state, me, beloved).labels.some((l) => l === 'dating' || l === 'ex');
+      const theirs = peekRel(state, rival, beloved).labels.includes('dating');
+      const blame = theirs && !mine ? 0.3 : 1;
       f.jealousy = Math.max(f.jealousy, jealousy);
-      f.betrayal = Math.max(f.betrayal, jealousy * friendship * 1.5);
+      f.betrayal = Math.max(f.betrayal, jealousy * friendship * 1.5 * blame);
       f.loss = Math.max(f.loss, jealousy * 0.5);
       const heat = 0.5 + 0.5 * unit(t.ego) + 0.5 * unit(t.volatility);
       deltas.push({
         toward: rival,
-        resentment: 0.3 * jealousy * heat,
+        resentment: 0.3 * jealousy * heat * blame,
         affection: -0.25 * jealousy,
         trust: -0.3 * jealousy * (0.5 + friendship),
       });

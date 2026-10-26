@@ -1,9 +1,9 @@
-import { EMOTIONS } from '../emotion';
+import { feel, zeroEmotions } from '../emotion';
 import type { CognitionProviders } from '../cognition/providers';
 import { ruleBasedProviders } from '../cognition/rules';
-import { acceptsApology, interactionCooldownKey } from '../cognition/rules/interaction';
-import { pruneMemories } from '../mind/memory';
-import { computeFocus, computeThreads } from '../mind/threads';
+import { interactionCooldownKey } from '../cognition/rules/interaction';
+import { pruneMemories, retrieve } from '../mind/memory';
+import { computeFocus, computeThreads, preoccupation } from '../mind/threads';
 import {
   dayOf,
   isSleepTime,
@@ -15,10 +15,9 @@ import {
   type Tick,
 } from '../time';
 import type { FighterId, SimState, UtteranceInterpretation, WorldEvent } from '../types';
-import { clamp01, fnv1a, unit } from '../util/math';
+import { clamp01, fnv1a } from '../util/math';
 import {
   applyRelDelta,
-  attachment,
   fighterIds,
   fighterList,
   getFighter,
@@ -37,11 +36,9 @@ import { createState, type Scenario } from './scenario';
 
 export type EventDraft = Omit<WorldEvent, 'id' | 'tick' | 'witnesses' | 'gloss'> & { witnesses?: FighterId[] };
 
-const ARGUMENT_PRESSURE = 0.6;
-const BRAWL_PRESSURE = 0.95;
 const MIN_BELIEF_CONFIDENCE = 0.3;
-const MOOD_SETTLE_AWAKE = 0.97;
-const MOOD_SETTLE_ASLEEP = 0.95;
+/** Comfort of a room when the layout doesn't say. */
+const DEFAULT_ROOM_COMFORT = 0.5;
 const REFLECTION_THRESHOLD = 0.5;
 
 /**
@@ -100,7 +97,6 @@ export class Simulation {
     this.serveMeals(emit);
     this.spar(emit);
     this.socialize(emit);
-    this.encounters(emit);
 
     for (const e of emitted) perceive(s, this.providers, e);
 
@@ -117,15 +113,10 @@ export class Simulation {
         f.threads = computeThreads(s, id);
         f.state.focus = computeFocus(s, id);
       }
+      this.afterThreads();
       emitted.push(...nightly);
     }
 
-    // Momentary feelings settle. Only this transient `mood` settles: relationships,
-    // memories, beliefs and temperament never decay or heal on their own.
-    for (const f of fighterList(s)) {
-      const settle = f.state.activity === 'sleep' ? MOOD_SETTLE_ASLEEP : MOOD_SETTLE_AWAKE;
-      for (const e of EMOTIONS) f.state.mood[e] *= settle;
-    }
     s.tick++;
     return emitted;
   }
@@ -281,13 +272,6 @@ export class Simulation {
         if (o.def.id !== f.def.id) f.state.lastSeen[o.def.id] = s.tick;
       }
     }
-
-    // An encounter ends when the pair are no longer in the same room.
-    for (const key of Object.keys(s.cooldowns)) {
-      if (!key.startsWith('confront:')) continue;
-      const [a, b] = key.slice('confront:'.length).split('|') as [FighterId, FighterId];
-      if (getFighter(s, a).state.location !== getFighter(s, b).state.location) delete s.cooldowns[key];
-    }
   }
 
   private updateNeeds(): void {
@@ -372,55 +356,16 @@ export class Simulation {
     }
   }
 
-  /** How close `a` is to snapping at `b`. */
-  pressure(a: FighterId, b: FighterId): number {
-    const s = this.state;
-    const f = getFighter(s, a);
-    const t = f.temperament;
-    const r = peekRel(s, a, b);
-    if (r.resentment < 0.2) return 0;
-    return (
-      r.resentment * (0.6 + 0.6 * unit(t.volatility)) +
-      0.2 * unit(t.aggression) +
-      0.3 * f.state.mood.anger -
-      0.35 * unit(t.discipline) -
-      // Hard to go all-out at someone you still have feelings for.
-      0.3 * attachment(s, a, b)
-    );
-  }
-
-  private encounters(emit: (d: EventDraft) => WorldEvent): void {
-    const s = this.state;
-    for (const room of s.layout.rooms) {
-      const here = occupants(s, room.id).filter((f) => f.state.activity !== 'recover');
-      for (let i = 0; i < here.length; i++) {
-        for (let j = i + 1; j < here.length; j++) {
-          const a = here[i]!.def.id;
-          const b = here[j]!.def.id;
-          const pa = this.pressure(a, b);
-          const pb = this.pressure(b, a);
-          const [initiator, other, p] = pa >= pb ? [a, b, pa] : [b, a, pb];
-          // One confrontation per encounter: the pair must part ways before the next.
-          const key = `confront:${pairKey(a, b)}`;
-          if (s.cooldowns[key] !== undefined) continue;
-          if (p >= BRAWL_PRESSURE) {
-            touchCooldown(s, key);
-            emit({ type: 'brawl', actors: [initiator], targets: [other], location: room.id, intensity: 0.9, public: true });
-          } else if (p >= ARGUMENT_PRESSURE) {
-            touchCooldown(s, key);
-            emit({ type: 'argument', actors: [initiator], targets: [other], location: room.id, intensity: 0.6, public: true });
-          }
-        }
-      }
-    }
-  }
 
   private socialize(emit: (d: EventDraft) => WorldEvent): void {
     const s = this.state;
+    const policy = this.providers.interaction;
+    // People already caught up in a confrontation this half hour.
+    const embroiled = new Set<FighterId>();
     for (const f of fighterList(s)) {
-      if (isAsleep(f, s.tick) || isSleepTime(s.tick)) continue;
+      if (isAsleep(f, s.tick) || isSleepTime(s.tick) || embroiled.has(f.def.id)) continue;
       const present = occupants(s, f.state.location).map((o) => o.def.id);
-      const choice = this.providers.interaction.choose(s, f.def.id, present);
+      const choice = policy.choose(s, f.def.id, present);
       if (!choice) continue;
       touchCooldown(s, interactionCooldownKey(choice.kind, f.def.id, choice.target));
       const base = { actors: [f.def.id], targets: [choice.target], location: f.state.location };
@@ -440,8 +385,24 @@ export class Simulation {
         case 'comfort':
           emit({ ...base, type: 'comfort', intensity: 0.4, public: false });
           break;
+        case 'confront': {
+          if (embroiled.has(choice.target)) break;
+          embroiled.add(f.def.id);
+          embroiled.add(choice.target);
+          if (policy.strikesFirst(s, f.def.id, choice.target)) {
+            emit({ ...base, type: 'brawl', intensity: 0.9, public: true, confrontation: { response: 'struck_first' } });
+            break;
+          }
+          const response = policy.respondToConfrontation(s, choice.target, f.def.id);
+          if (response === 'fought_back') {
+            emit({ ...base, type: 'brawl', intensity: 0.9, public: true, confrontation: { response } });
+          } else {
+            emit({ ...base, type: 'argument', intensity: response === 'walked_away' ? 0.45 : 0.6, public: true, confrontation: { response } });
+          }
+          break;
+        }
         case 'apologize': {
-          const accepted = acceptsApology(s, choice.target, f.def.id);
+          const accepted = policy.acceptsApology(s, choice.target, f.def.id);
           emit({ ...base, type: 'apology', intensity: 0.6, public: false, apology: { accepted } });
           break;
         }
@@ -461,6 +422,41 @@ export class Simulation {
       this.considerBreakup(id, emit);
       this.deriveLabels(id);
       pruneMemories(getFighter(s, id), s.tick);
+    }
+  }
+
+  /**
+   * After the night's threads are known: worries come back, and a good night's sleep
+   * in a decent room counteracts sadness and fear (not anger — that takes people).
+   * Then fighters write in their journals and, if they choose, to the manager.
+   */
+  private afterThreads(): void {
+    const s = this.state;
+    const dayStart = s.tick - TICKS_PER_DAY;
+    for (const id of fighterIds(s)) {
+      const f = getFighter(s, id);
+      // Unresolved problems keep pulling their memories back up.
+      for (const t of f.threads) {
+        const recalled = retrieve(f, { entities: t.about }, this.providers.relevance, s.tick, 2, { touch: true });
+        for (const r of recalled) feel(f.state.mood, r.memory.emotions, 0.25 * t.weight);
+      }
+      if (f.state.activity === 'sleep') {
+        const room = s.layout.rooms.find((r) => r.id === f.state.location);
+        const rest = (room?.comfort ?? DEFAULT_ROOM_COMFORT) * f.state.needs.comfort * (1 - preoccupation(s, id));
+        const contentment = zeroEmotions();
+        contentment.joy = 0.3 * rest;
+        feel(f.state.mood, contentment, 1);
+      }
+
+      const entry = this.providers.diarist.write(s, id, dayStart);
+      // Written in the small hours about the day before.
+      if (entry) f.diary.push({ tick: dayStart + TICKS_PER_DAY - NIGHTLY_SLOT - 1, text: entry });
+
+      for (const draft of this.providers.correspondent.compose(s, id)) {
+        if (f.state.raisedTopics.includes(draft.topic)) continue;
+        f.state.raisedTopics.push(draft.topic);
+        s.inbox.push({ ...draft, id: `msg${s.inbox.length}`, tick: s.tick, from: id });
+      }
     }
   }
 

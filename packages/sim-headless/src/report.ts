@@ -95,3 +95,20 @@ export function inspect(sim: Simulation, id: string): string {
   const ctx = buildMindContext(sim.state, sim.providers, id);
   return ['', `──── Mind context for ${nameOf(sim.state, id)} (what an LLM would be given) ────`, renderMindContext(ctx)].join('\n');
 }
+
+export function journal(sim: Simulation, id: string): string {
+  const f = sim.state.fighters[id];
+  if (!f) return `No fighter ${id}`;
+  const lines = ['', `──── ${f.def.name}'s journal ────`];
+  for (const e of f.diary) lines.push(`  ${formatTime(e.tick).replace(/ \d\d:\d\d$/, '')}  ${e.text}`);
+  return lines.join('\n');
+}
+
+export function inbox(sim: Simulation): string {
+  const s = sim.state;
+  const lines = ['', `──── Manager's inbox (${s.inbox.length}) ────`];
+  for (const m of s.inbox) {
+    lines.push('', `  ${formatTime(m.tick)}  From: ${nameOf(s, m.from)}  —  ${m.subject}`, `    ${m.body}`);
+  }
+  return lines.join('\n');
+}

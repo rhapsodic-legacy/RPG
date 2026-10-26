@@ -33,8 +33,14 @@ Two stages, one mind:
    itself, beliefs do not expire, personalities do not drift. Every change has a cause in
    the world: an event, a conversation, a gift, a manipulation, a match. Relationships are
    *purposefully* hard to manage, and neglect has a real price: fighters can leave for good.
-   (Physiology is the exception: hunger, fatigue, injuries healing, and momentary feelings
-   settling. Lasting state never does.)
+   Thoughts, memories and feelings stick with a fighter until they are resolved, changed
+   or counteracted — as with people. Unresolved problems resurface every night
+   (rumination). Feelings change only through other feelings: gratitude and affection
+   counteract anger, joy counteracts sadness, and a good night's sleep in a decent room
+   counteracts sadness and fear (but not anger — that takes people). No hard-baked limits
+   either: whether two people fight again is up to them, driven by grievances they haven't
+   voiced yet and held back by their personality. Physiology (hunger, fatigue, injuries
+   healing) is the only thing that runs on the clock.
 
 ### Decisions so far
 
@@ -56,6 +62,14 @@ Two stages, one mind:
   a feud escalates; it does not cool off.
 - **Fighters can walk out permanently.** Neglect, mistreatment and a broken relationship
   with the manager end in departures.
+- **Fighters talk to the manager.** An inbox of messages ("I won't fight on a team with
+  Jin or Martha. It hurts too much."; "I've tried to make peace with Bob, but Bob is being
+  a stubborn fool. Could you intervene? Perhaps if a room was put in the basement…"), and
+  private journals the player can read ("I have strong feelings for Jin now… I hope Bob is
+  ok with that."). Both are LLM seams (`Correspondent`, `Diarist`).
+- **Fighters want to get along — some of them.** The `pragmatism` axis is awareness that a
+  united team wins fights and winning pays: negotiators swallow grievances, make amends and
+  tolerate teammates they dislike; loose cannons don't care.
 - **Many levers, none guaranteed:** house layout, room assignments, schedules, gifts,
   talking (later: free-form chat), mediation, discipline, and manipulation.
 - **Manipulation is a strategy, for both sides.** Fighters can lie and stir the pot
