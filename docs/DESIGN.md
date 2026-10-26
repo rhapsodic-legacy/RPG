@@ -337,6 +337,36 @@ None of this is scripted — it falls out of the rules.
   won't tell you she's distracted unless she trusts you.
 - Optional: LLM-written prose for reflections and diary entries (cosmetic only).
 
+### 4.12 LLM-ready by design (the long-term goal)
+
+The goal is for fighters to feel close to sentient once models and hardware allow —
+coaching should become about *what is actually said*, not numbers. Example: shouting
+"You can do it, Bob!" while **Jin** is the one fighting should hurt, especially given
+their history. So the hooks are built in from day one, not retrofitted:
+
+1. **Every cognitive act is a swappable provider** (`packages/sim-core/src/cognition/providers.ts`):
+   `Appraiser` (how an event feels), `ActivityPolicy` (what to do), `InteractionPolicy`
+   (whom to engage and how), `Reflector` (what to conclude), `UtteranceInterpreter`
+   (what words mean), `RelevanceScorer` (what to recall), `Narrator` (how to say it).
+   Each ships with a rule-based implementation; any of them can be replaced by a
+   richer mind without touching the rest of the simulation.
+2. **Language is first-class data.** Raw text is never discarded: utterances keep their
+   exact words next to their interpretation; every memory has a natural-language gloss.
+3. **Determinism contract.** Providers inside `Simulation.step` must be pure.
+   Non-deterministic minds (LLMs, remote services) run *outside* the step and act through
+   journaled `Input`s — e.g. a `coach_utterance` carrying an LLM's interpretation, or an
+   `intent` ("seek Martha", "avoid Jin"). The in-sim interpreter's output is journaled
+   too, so replays never re-run any interpreter. Result: LLM-driven runs replay bit-for-bit,
+   which keeps PvP verifiable.
+4. **Grounded context export.** `buildMindContext()` / `renderMindContext()` produce exactly
+   what an LLM needs to speak or act as a fighter: traits, current state, relationships,
+   beliefs, open threads, and memories retrieved against a cue. The LLM may only reference
+   facts present in that context.
+5. **Upgrade path.** Today: keyword interpreter → tomorrow: LLM interpreter (same
+   interface) → later: LLM-driven deliberation pushing `intent`s, LLM appraisal for
+   free-form events, embedding-based `RelevanceScorer` for chat. The simulation remains the
+   source of truth throughout.
+
 ---
 
 ## 5. Home Base
@@ -459,15 +489,17 @@ Engine-agnostic simulation core, separated from rendering:
 
 ```
 packages/
-  sim-core/       deterministic: fighters, memory, social, home sim, combat, events
-  sim-headless/   CLI harness: run thousands of weeks/fights, metrics, regression tests
-  content/        data: traits, moves, body templates, event types, reflection rules
-apps/
+  sim-core/       deterministic: fighters, memory, social, home sim, (combat next), events
+    src/cognition/  provider interfaces + rule-based minds + mind-context export
+    src/mind/       memory stream, retrieval, threads/focus/readiness
+    src/sim/        Simulation (step loop), perception, inputs/journal, scenarios
+  sim-headless/   CLI harness: narrated runs, layout comparisons, mind inspection
+apps/             (later)
   client/         2.5D renderer + UI (consumes sim-core)
-  server/         (later) PvP verification, matchmaking
+  server/         PvP verification, matchmaking
 ```
 
-**Recommended stack (to confirm):** TypeScript throughout.
+**Stack:** TypeScript throughout (Node 22, npm workspaces, Vitest).
 - One language for sim, headless harness, browser client and server.
 - Client rendered with **Three.js using an orthographic / stylised camera** for 2.5D —
   upgrading to full 3D later is a camera and asset change, not a rewrite.
@@ -492,7 +524,7 @@ Milestones 1 and 2 are independent and can be built in parallel.
 | # | Milestone | Proves |
 |---|---|---|
 | 1 | **Headless 1v1 combat** — geometry, stances, contact quality, 3 temperament axes | Personality + body produce visibly different fights (the crouch-vs-punch effect) |
-| 2 | **Headless social sim** — events, perception, appraisal, memory, retrieval, reflection, relationships, gossip, encounters; text log output | Bob/Jin/Martha-style drama emerges unscripted |
+| 2 | **Headless social sim** — events, perception, appraisal, memory, retrieval, reflection, relationships, gossip, encounters, apologies; text log output; LLM seams ✅ *first pass done* | Bob/Jin/Martha-style drama emerges unscripted |
 | 3 | **3v3 combat** + team behaviour + combat → memory events | Relationships change fights |
 | 4 | **Close the loop** — home week → fight → home week | The core loop is fun in text |
 | 5 | **2.5D client** — arena rendering, house view, inspectors | Readability; does 2.5D look good enough? |
