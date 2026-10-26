@@ -156,6 +156,27 @@ export interface Rescue {
   from: FighterId;
 }
 
+/** One fighter's pose at one sampled frame, for replay and rendering. */
+export interface TraceSample {
+  x: number;
+  z: number;
+  stance: Stance;
+  action: ActionKind;
+  move?: MoveId;
+  /** Frames into the current action. */
+  t: number;
+  hp: number;
+  target: FighterId | null;
+  mode: EngageMode;
+  out: boolean;
+}
+
+export interface FightTrace {
+  /** Frames between samples. */
+  every: number;
+  frames: Record<FighterId, TraceSample>[];
+}
+
 export interface FightResult {
   /** 1v1: the winner. Teams: the first fighter of the winning side. */
   winner: FighterId | null;
@@ -171,6 +192,8 @@ export interface FightResult {
   events: FightEvent[];
   stats: Record<FighterId, CombatStats>;
   finalHp: Record<FighterId, number>;
+  /** Present when the fight was run with `trace`. */
+  trace?: FightTrace;
 }
 
 /** What a fighter has learned about their own moves, kept across fights. */

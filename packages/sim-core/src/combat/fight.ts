@@ -17,7 +17,9 @@ import {
   type ContactQuality,
   type FightEvent,
   type FightResult,
+  type FightTrace,
   type MoveId,
+  type TraceSample,
   type Rescue,
   type SpeechAct,
 } from './types';
@@ -32,6 +34,8 @@ export interface FightOptions {
   maxFrames?: number;
   /** Fighters learn from this fight (default true). */
   learn?: boolean;
+  /** Record a pose for every Nth frame, for replay (off by default). */
+  trace?: number;
 }
 
 const ARENA_HALF_WIDTH = 450;
@@ -187,8 +191,30 @@ export function runTeamFight(state: SimState, sides: [FighterId[], FighterId[]],
   let winningSide: 0 | 1 | null = null;
   let method: FightResult['method'] = 'decision';
 
+  const trace: FightTrace | undefined = opts.trace ? { every: opts.trace, frames: [] } : undefined;
+  const sample = () => {
+    if (!trace || frame % trace.every !== 0) return;
+    const poses: Record<FighterId, TraceSample> = {};
+    for (const c of combatants) {
+      poses[c.id] = {
+        x: Math.round(c.x),
+        z: Math.round(c.z),
+        stance: c.action.kind === 'stance' && c.action.toStance ? c.action.toStance : c.stance,
+        action: c.action.kind,
+        ...(c.action.move ? { move: c.action.move } : {}),
+        t: frame - c.action.startFrame,
+        hp: Math.round(c.hp),
+        target: c.target,
+        mode: c.mode,
+        out: c.out,
+      };
+    }
+    trace.frames.push(poses);
+  };
+
   for (; frame < maxFrames; frame++) {
     const live = combatants.filter((c) => !c.out);
+    sample();
 
     // Finish actions.
     for (const c of live) {
@@ -429,5 +455,6 @@ export function runTeamFight(state: SimState, sides: [FighterId[], FighterId[]],
     damage,
     stats: Object.fromEntries(combatants.map((c) => [c.id, c.stats])),
     finalHp: Object.fromEntries(combatants.map((c) => [c.id, c.hp])),
+    ...(trace ? { trace } : {}),
   };
 }

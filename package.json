@@ -10,7 +10,9 @@
     "test": "vitest run",
     "sim": "tsx packages/sim-headless/src/cli.ts",
     "fight": "tsx packages/sim-headless/src/fight.ts",
-    "match": "tsx packages/sim-headless/src/match.ts"
+    "match": "tsx packages/sim-headless/src/match.ts",
+    "export-fights": "tsx packages/sim-headless/src/export-fights.ts",
+    "replay": "npm run -s export-fights -- --out fights.json && node packages/sim-headless/replay/build.mjs fights.json arena-replay.html"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

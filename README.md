@@ -36,6 +36,8 @@ npm run fight -- --scenario love-triangle --days 14 --a bob --b jin   # after tw
 
 npm run match                     # 3v3 "Night of Rivals": inbox, pre-fight talk, fight, aftermath
 npm run match -- --leader martha  # same night, different leader (or --leader none)
+
+npm run replay                    # build arena-replay.html: 2.5D replays of exported fights
 ```
 
 In the love-triangle scenario only one thing is scripted: Bob gets injured on day 2.

@@ -1,0 +1,531 @@
+<title>Arena Replay</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a broadcast replay booth — stage on the left, play-by-play on the right; stacks on phones.
+   Deliberately single-theme: an arena under lights. */
+:root {
+  --bg: #121315;
+  --panel: #1b1c1f;
+  --line: #2c2d31;
+  --fg: #ecebe6;
+  --muted: #9c9a92;
+  --home: #f0a63a;
+  --away: #5aa9e6;
+  --hit: #ffe27a;
+  --ko: #ff5c4d;
+  --floor: #1e1f22;
+  --floor-line: #303136;
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 5vw, 46px); letter-spacing: 0.02em; line-height: 1; margin: 0; text-transform: uppercase; text-wrap: balance; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font: 500 13px var(--font-body); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--bg); background: var(--fg); border-color: var(--fg); }
+.tab:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--hit); outline-offset: 2px; }
+.booth { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 920px) { .booth { grid-template-columns: minmax(0, 1fr); } }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
+canvas { display: block; width: 100%; height: auto; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.btn { font: 600 13px var(--font-body); color: var(--fg); background: var(--line); border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; min-width: 64px; }
+.speed { display: flex; gap: 4px; }
+.speed .btn { min-width: 0; padding: 6px 9px; font-weight: 500; color: var(--muted); background: transparent; border: 1px solid var(--line); }
+.speed .btn[aria-pressed="true"] { color: var(--fg); border-color: var(--muted); }
+.scrub { flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+input[type="range"] { width: 100%; accent-color: var(--hit); }
+.marks { position: relative; height: 8px; }
+.marks span { position: absolute; top: 0; width: 2px; height: 8px; background: var(--ko); }
+.marks span.rescue { background: var(--home); }
+.clock { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); min-width: 92px; text-align: right; }
+.toggles { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 13px; }
+.toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-width: 0; max-height: 720px; }
+aside h2 { font: 800 18px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; padding: 12px 14px 8px; }
+.log { list-style: none; margin: 0; padding: 0 6px 10px; overflow-y: auto; font-size: 13px; }
+.log li { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px; padding: 4px 8px; border-radius: 6px; color: var(--muted); cursor: pointer; }
+.log li .t { font: 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.log li.say { color: var(--fg); }
+.log li.ko { color: var(--ko); font-weight: 600; }
+.log li.rescue, .log li.switch { color: var(--home); }
+.log li.past { opacity: 0.55; }
+.log li.now { background: var(--line); opacity: 1; }
+.log li:hover { background: #26272b; }
+.notes { color: var(--muted); font-size: 13px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 20px; }
+.notes b { color: var(--fg); font-weight: 600; }
+.legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Night of Rivals</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+  </header>
+
+  <div class="booth">
+    <div class="stage">
+      <canvas id="stage" width="1280" height="720" aria-label="Fight replay"></canvas>
+      <div class="controls">
+        <button class="btn" id="play" type="button">Pause</button>
+        <div class="speed" id="speed" role="group" aria-label="Playback speed"></div>
+        <div class="scrub">
+          <input type="range" id="scrub" min="0" max="100" value="0" step="1" aria-label="Fight timeline">
+          <div class="marks" id="marks"></div>
+        </div>
+        <span class="clock" id="clock">0.0s</span>
+      </div>
+      <div class="controls toggles">
+        <label><input type="checkbox" id="showBands" checked> Strike heights</label>
+        <label><input type="checkbox" id="showTargets" checked> Who's after whom</label>
+        <label><input type="checkbox" id="showAll"> Every strike in log</label>
+      </div>
+    </div>
+    <aside>
+      <h2>Play-by-play</h2>
+      <ul class="log" id="log"></ul>
+    </aside>
+  </div>
+
+  <div class="notes">
+    <div><span class="legend-swatch" style="background: var(--home)"></span><b>Home</b> fighters live in the player's house. <span class="legend-swatch" style="background: var(--away); margin-left: 8px"></span><b>Away</b> are rivals.</div>
+    <div><b>Strike heights</b> show the band each strike travels through, scaled to the attacker's height and stance. A straight punch from a tall fighter passes over a crouched one.</div>
+    <div><b>Dashed lines and rings</b> mean a fighter is hanging back near someone instead of engaging, keeping their strength.</div>
+    <div>Every fight here was produced by the deterministic simulator: no dice. Pre-fight talk plays before the bell.</div>
+  </div>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const MOVES = DATA.moves;
+  const FPS = 30;
+  const SAY_FRAMES = 80; // pre-bell lines, ~2.7s each
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = {
+    home: css('--home'), away: css('--away'), fg: css('--fg'), muted: css('--muted'), hit: css('--hit'),
+    ko: css('--ko'), floor: css('--floor'), floorLine: css('--floor-line'), panel: css('--panel'), bg: css('--bg'),
+  };
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const el = (id) => document.getElementById(id);
+  const scrub = el('scrub');
+  const logEl = el('log');
+
+  let fight, pre, t = 0, playing = true, speed = 1, last = performance.now();
+  // Broadcast camera: follows the fighters still standing and zooms to fit them.
+  const cam = { x: 0, y: 0, zoom: 1, ready: false };
+  const toScreen = (pt) => ({ x: (pt.x - cam.x) * cam.zoom + W / 2, y: (pt.y - cam.y) * cam.zoom + H * 0.58 });
+
+  // ---------- data helpers
+  const ROW = { x: 0, z: 1, crouch: 2, action: 3, move: 4, t: 5, hp: 6, target: 7, hover: 8, out: 9 };
+  function poseAt(frame) {
+    const tr = fight.trace;
+    const f = Math.max(0, Math.min(frame, (tr.frames.length - 1) * tr.every));
+    const i = Math.floor(f / tr.every);
+    const a = tr.frames[i], b = tr.frames[Math.min(i + 1, tr.frames.length - 1)];
+    const k = (f - i * tr.every) / tr.every;
+    return a.map((r, j) => {
+      const s = b[j];
+      return { x: r[0] + (s[0] - r[0]) * k, z: r[1] + (s[1] - r[1]) * k, crouch: r[2], action: r[3], move: r[4], t: r[5] + (f - i * tr.every), hp: r[6] + (s[6] - r[6]) * k, target: r[7], hover: r[8], out: r[9] };
+    });
+  }
+  const speeches = () => fight.events.filter((e) => e.type === 'speech' && e.frame === 0);
+
+  // ---------- projection: x across, z into the screen, y up
+  let W, H, S, horizon;
+  function resize() {
+    const w = canvas.clientWidth;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(w * 0.56 * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = w; H = w * 0.56; S = W / 1120; horizon = H * 0.36;
+  }
+  const depthScale = (z) => 0.82 + 0.36 * ((z + 220) / 440);
+  function project(x, z, y = 0) {
+    const k = depthScale(z);
+    const gx = W / 2 + x * S * (0.92 + 0.08 * k) + z * S * 0.18;
+    const gy = horizon + ((z + 220) / 440) * (H * 0.5) + 10 * S;
+    return { x: gx, y: gy - y * S * k * 0.55, k };
+  }
+
+  // ---------- drawing
+  function drawFloor() {
+    const g = ctx.createRadialGradient(W / 2, H * 0.62, 20, W / 2, H * 0.62, W * 0.7);
+    g.addColorStop(0, '#26272b'); g.addColorStop(1, C.bg);
+    const c = [project(-450, -220), project(450, -220), project(450, 220), project(-450, 220)];
+    ctx.beginPath(); c.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = C.floorLine; ctx.lineWidth = 1;
+    for (let x = -450; x <= 450; x += 150) { const a = project(x, -220), b = project(x, 220); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    for (let z = -220; z <= 220; z += 110) { const a = project(-450, z), b = project(450, z); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    ctx.stroke();
+  }
+
+  function fighterColor(f, alpha = 1) {
+    const base = f.side === 0 ? C.home : C.away;
+    if (alpha === 1) return base;
+    const n = parseInt(base.slice(1), 16);
+    return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+
+  function drawFighter(f, p, poses, frame) {
+    const base = project(p.x, p.z);
+    const k = base.k;
+    const px = S * k * 0.55; // px per cm (vertical)
+    const height = (p.crouch ? f.crouchTop : f.heightCm);
+    const top = height * px;
+    const wide = (f.massKg / 75) * 13 * S * k;
+    const target = p.target >= 0 ? poses[p.target] : null;
+    const face = target ? Math.sign(project(target.x, target.z).x - base.x) || (f.side ? -1 : 1) : (f.side ? -1 : 1);
+    const col = fighterColor(f);
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(base.x, base.y, wide * 1.4, wide * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+
+    if (p.out || p.action === 'down') {
+      ctx.save(); ctx.translate(base.x, base.y - wide * 0.4);
+      ctx.fillStyle = fighterColor(f, p.out ? 0.45 : 0.8);
+      ctx.beginPath(); ctx.roundRect(-f.heightCm * px * 0.5, -wide * 0.5, f.heightCm * px, wide, wide * 0.5); ctx.fill();
+      ctx.restore();
+      label(f, base, 0, p);
+      return;
+    }
+
+    if (p.hover) {
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = fighterColor(f, 0.8); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(base.x, base.y, wide * 2.1, wide * 0.7, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    const lean = p.action === 'stagger' ? -face * 0.18 : p.action === 'attack' ? face * 0.06 : 0;
+    ctx.save(); ctx.translate(base.x, base.y); ctx.rotate(lean);
+    ctx.lineCap = 'round'; ctx.strokeStyle = col; ctx.fillStyle = col;
+    const hip = top * (p.crouch ? 0.42 : 0.47), shoulder = top * (p.crouch ? 0.8 : 0.8);
+    // legs
+    ctx.lineWidth = Math.max(3, wide * 0.42);
+    const stride = p.crouch ? wide * 1.3 : wide * 0.8;
+    ctx.beginPath(); ctx.moveTo(-stride * 0.5, 0); ctx.lineTo(0, -hip); ctx.lineTo(stride * 0.5, 0); ctx.stroke();
+    // torso
+    ctx.lineWidth = Math.max(5, wide * 0.9);
+    ctx.beginPath(); ctx.moveTo(0, -hip); ctx.lineTo(face * (p.crouch ? wide * 0.5 : 0), -shoulder); ctx.stroke();
+    // head
+    const headR = Math.max(4, top * (p.crouch ? 0.11 : 0.085));
+    ctx.beginPath(); ctx.arc(face * (p.crouch ? wide * 0.7 : 0), -shoulder - headR * 1.05, headR, 0, Math.PI * 2); ctx.fill();
+    // arms: guard up, or resting
+    ctx.lineWidth = Math.max(2.5, wide * 0.32);
+    if (p.action !== 'attack') {
+      const guardY = p.action === 'guard' ? -shoulder - headR * 0.6 : -shoulder * 0.86;
+      ctx.beginPath(); ctx.moveTo(face * wide * 0.3, -shoulder); ctx.lineTo(face * wide * 1.1, guardY); ctx.stroke();
+      if (p.action === 'guard') {
+        ctx.strokeStyle = fighterColor(f, 0.5); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(face * wide * 0.9, guardY + headR, headR * 2.2, -Math.PI / 2 - 0.9, -Math.PI / 2 + 0.9); ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    if (p.action === 'attack' && p.move && MOVES[p.move]) drawStrike(f, p, base, px, face, target);
+    label(f, base, top + headR * 2.4, p);
+  }
+
+  function drawStrike(f, p, base, px, face, target) {
+    const m = MOVES[p.move];
+    const phase = p.t < m.startup ? 'wind' : p.t < m.startup + m.active ? 'hit' : 'recover';
+    const fullTop = f.heightCm;
+    const top = m.yHi <= 0.3 ? fullTop : (p.crouch ? f.crouchTop : fullTop);
+    const lo = m.yLo * top * px, hi = m.yHi * top * px;
+    const mid = (lo + hi) / 2;
+    const reach = m.reach * f.heightCm * S * base.k * (phase === 'hit' ? 1 : phase === 'wind' ? 0.35 : 0.55);
+    const col = fighterColor(f);
+    if (el('showBands').checked && phase !== 'recover') {
+      ctx.fillStyle = fighterColor(f, phase === 'hit' ? 0.22 : 0.1);
+      const x0 = base.x, x1 = base.x + face * m.reach * f.heightCm * S * base.k;
+      ctx.fillRect(Math.min(x0, x1), base.y - hi, Math.abs(x1 - x0), Math.max(2, hi - lo));
+    }
+    ctx.strokeStyle = col; ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3, (f.massKg / 75) * (m.kick ? 5 : 4) * S * base.k);
+    const from = m.kick ? { x: base.x, y: base.y - top * px * 0.45 } : { x: base.x + face * 4, y: base.y - top * px * 0.78 };
+    ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(base.x + face * reach, base.y - mid); ctx.stroke();
+    if (phase === 'hit') { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(base.x + face * reach, base.y - mid, ctx.lineWidth * 0.8, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  function label(f, base, above, p) {
+    ctx.font = `600 ${Math.max(11, 13 * S * 1.6)}px ${css('--font-body')}`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = p.out ? C.muted : C.fg;
+    ctx.fillText(f.name, base.x, base.y + 18 * S * 1.4);
+  }
+
+  function drawTargets(poses) {
+    if (!el('showTargets').checked) return;
+    poses.forEach((p, i) => {
+      if (p.out || p.target < 0) return;
+      const t = poses[p.target];
+      const a = project(p.x, p.z), b = project(t.x, t.z);
+      ctx.strokeStyle = fighterColor(fight.fighters[i], p.hover ? 0.55 : 0.28);
+      ctx.lineWidth = 1.5; ctx.setLineDash(p.hover ? [5, 5] : []);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    });
+  }
+
+  function bubble(f, p, text, emphasis) {
+    const world = project(p.x, p.z);
+    const base = toScreen(world);
+    const head = (p.crouch ? f.crouchTop : f.heightCm) * S * world.k * 0.55 * cam.zoom;
+    const fs = Math.max(12, 13 * S * 1.5);
+    ctx.font = `500 ${fs}px ${css('--font-body')}`;
+    const maxW = Math.min(W * 0.42, 340);
+    const words = text.split(' '); const lines = []; let line = '';
+    for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test; }
+    lines.push(line);
+    const lh = fs * 1.3, pad = 10;
+    const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2;
+    const bh = lines.length * lh + pad * 1.4;
+    let bx = Math.max(8, Math.min(W - bw - 8, base.x - bw / 2));
+    const by = Math.max(8, base.y - head - bh - 34 * S);
+    ctx.fillStyle = emphasis ? C.fg : '#f6f5f0';
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(base.x - 7, by + bh); ctx.lineTo(base.x + 7, by + bh); ctx.lineTo(base.x, by + bh + 10); ctx.fill();
+    ctx.fillStyle = '#16171a'; ctx.textAlign = 'left';
+    lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad * 0.7 + lh * (i + 0.78)));
+  }
+
+  function drawEffects(frame, poses) {
+    for (const e of fight.events) {
+      const age = frame - e.frame;
+      if (age < 0 || age > 12) continue;
+      const i = fight.fighters.findIndex((f) => f.id === e.d);
+      if (i < 0) continue;
+      const f = fight.fighters[i], p = poses[i];
+      const base = project(p.x, p.z);
+      const h = (p.crouch ? f.crouchTop : f.heightCm) * S * base.k * 0.55;
+      const y = base.y - (e.r === 'head' ? h * 0.9 : e.r === 'legs' ? h * 0.25 : h * 0.6);
+      const fade = 1 - age / 12;
+      if (e.type === 'contact' && (e.q === 'clean' || e.q === 'glancing')) {
+        const r = (e.q === 'clean' ? 22 : 11) * S * 1.4 * (0.6 + age / 20);
+        ctx.strokeStyle = `rgba(255, 226, 122, ${fade})`; ctx.lineWidth = 2.5;
+        for (let s = 0; s < 8; s++) { const a = (s / 8) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(base.x + Math.cos(a) * r * 0.4, y + Math.sin(a) * r * 0.4); ctx.lineTo(base.x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.stroke(); }
+      } else if (e.type === 'contact' && e.q === 'blocked') {
+        ctx.strokeStyle = `rgba(236, 235, 230, ${fade})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(base.x, y, 16 * S * 1.4, 0, Math.PI * 2); ctx.stroke();
+      } else if (e.type === 'contact' && e.q === 'whiff') {
+        ctx.fillStyle = `rgba(156, 154, 146, ${fade})`; ctx.font = `italic 600 ${Math.max(12, 14 * S * 1.4)}px ${css('--font-body')}`; ctx.textAlign = 'center';
+        ctx.fillText('whiff', base.x, base.y - h - 22 * S - age * 2);
+      } else if (e.type === 'ko' || e.type === 'knockdown') {
+        ctx.fillStyle = e.type === 'ko' ? `rgba(255, 92, 77, ${fade})` : `rgba(255, 226, 122, ${fade})`;
+        ctx.font = `800 ${Math.max(18, (e.type === 'ko' ? 44 : 24) * S * 1.4)}px ${css('--font-display')}`; ctx.textAlign = 'center';
+        ctx.fillText(e.type === 'ko' ? 'K.O.' : 'DOWN', base.x, base.y - h - 30 * S);
+      }
+    }
+  }
+
+  function drawHud(poses) {
+    const fs = Math.max(11, 12 * S * 1.4);
+    const sides = [0, 1].map((s) => fight.fighters.map((f, i) => ({ f, i })).filter((x) => x.f.side === s));
+    const barW = Math.min(170, W * 0.16), gap = 8;
+    sides.forEach((team, s) => {
+      team.forEach(({ f, i }, row) => {
+        const p = poses[i];
+        const hp0 = fight.trace.frames[0][i][ROW.hp];
+        const frac = Math.max(0, p.hp / hp0);
+        const x = s === 0 ? 14 : W - 14 - barW;
+        const y = 14 + row * (fs + 14);
+        ctx.font = `600 ${fs}px ${css('--font-body')}`; ctx.textAlign = s === 0 ? 'left' : 'right';
+        ctx.fillStyle = p.out ? C.muted : C.fg;
+        ctx.fillText(`${f.name}${f.focus < 0.6 ? ' · distracted' : ''}`, s === 0 ? x : x + barW, y + fs * 0.85);
+        ctx.fillStyle = '#2a2b2f'; ctx.fillRect(x, y + fs + 3, barW, 5);
+        ctx.fillStyle = fighterColor(f); const w = barW * frac;
+        ctx.fillRect(s === 0 ? x : x + barW - w, y + fs + 3, w, 5);
+      });
+    });
+  }
+
+  function updateCamera(poses, snap) {
+    const live = poses.filter((p) => !p.out);
+    const pts = (live.length ? live : poses).map((p) => project(p.x, p.z));
+    const minX = Math.min(...pts.map((q) => q.x)), maxX = Math.max(...pts.map((q) => q.x));
+    const minY = Math.min(...pts.map((q) => q.y)), maxY = Math.max(...pts.map((q) => q.y));
+    const tallest = Math.max(...fight.fighters.map((f) => f.heightCm)) * S * 0.6;
+    const spanX = maxX - minX + 260 * S, spanY = maxY - minY + tallest + 120 * S;
+    const zoom = Math.max(1, Math.min(2.4, Math.min(W / spanX, (H * 0.8) / spanY)));
+    const tx = (minX + maxX) / 2, ty = (minY + maxY) / 2 - tallest * 0.35;
+    const k = snap || !cam.ready ? 1 : 0.08;
+    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.zoom += (zoom - cam.zoom) * k; cam.ready = true;
+  }
+
+  function render(snap) {
+    const frame = Math.max(0, t);
+    const poses = poseAt(frame);
+    updateCamera(poses, snap);
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(W / 2, H * 0.58); ctx.scale(cam.zoom, cam.zoom); ctx.translate(-cam.x, -cam.y);
+    drawFloor();
+    drawTargets(poses);
+    const order = poses.map((p, i) => i).sort((a, b) => poses[a].z - poses[b].z);
+    for (const i of order) drawFighter(fight.fighters[i], poses[i], poses, frame);
+    drawEffects(frame, poses);
+    ctx.restore();
+    drawHud(poses);
+
+    // Pre-bell talk, one line at a time; barks during the fight.
+    if (t < 0) {
+      const idx = Math.floor((t + pre) / SAY_FRAMES);
+      const say = speeches()[idx];
+      if (say) {
+        const i = fight.fighters.findIndex((f) => f.id === say.a);
+        bubble(fight.fighters[i], poses[i], say.text.replace(/^[^:]+: "|"$/g, ''), true);
+      }
+      ctx.font = `800 ${Math.max(16, 22 * S * 1.4)}px ${css('--font-display')}`; ctx.textAlign = 'center'; ctx.fillStyle = C.muted;
+      ctx.fillText('BEFORE THE BELL', W / 2, H - 16);
+    } else {
+      for (const e of fight.events) {
+        if (e.type !== 'rescue' || frame < e.frame || frame > e.frame + 50) continue;
+        const i = fight.fighters.findIndex((f) => f.id === e.a);
+        bubble(fight.fighters[i], poses[i], e.text.replace(/^[^:]+: "|"$/g, ''), false);
+      }
+      const end = fight.result.frames;
+      if (frame >= end - 1) {
+        ctx.font = `800 ${Math.max(22, 40 * S * 1.4)}px ${css('--font-display')}`; ctx.textAlign = 'center'; ctx.fillStyle = C.fg;
+        const ws = fight.result.winningSide;
+        const names = ws === null ? 'DRAW' : fight.fighters.filter((f) => f.side === ws).map((f) => f.name.toUpperCase()).join(' · ') + ' WIN';
+        ctx.fillText(names, W / 2, H - 18);
+      }
+    }
+  }
+
+  // ---------- log + timeline
+  function fmt(frame) { return frame < 0 ? 'pre' : (frame / FPS).toFixed(1) + 's'; }
+  function buildLog() {
+    logEl.innerHTML = '';
+    const all = el('showAll').checked;
+    let sayIdx = 0;
+    for (const e of fight.events) {
+      if (e.type === 'stance' || e.type === 'time') continue;
+      if (e.type === 'contact' && !all && !(e.q === 'whiff' || e.q === 'clean')) continue;
+      if (e.type === 'contact' && !all && e.q === 'clean' && !/hook|roundhouse|uppercut|throw|hammer/.test(e.text)) continue;
+      const li = document.createElement('li');
+      const at = e.type === 'speech' && e.frame === 0 ? -pre + sayIdx++ * SAY_FRAMES : e.frame;
+      li.dataset.at = at;
+      li.className = e.type === 'speech' ? 'say' : e.type;
+      li.innerHTML = `<span class="t">${fmt(at)}</span><span></span>`;
+      li.lastChild.textContent = e.text;
+      li.addEventListener('click', () => { t = at; playing = false; syncButtons(); });
+      logEl.appendChild(li);
+    }
+    const end = document.createElement('li');
+    end.className = 'ko'; end.dataset.at = fight.result.frames;
+    end.innerHTML = `<span class="t">${fmt(fight.result.frames)}</span><span></span>`;
+    end.lastChild.textContent = fight.events.find((e) => e.type === 'time')?.text ?? '';
+    logEl.appendChild(end);
+  }
+  function buildMarks() {
+    const m = el('marks'); m.innerHTML = '';
+    const total = pre + fight.result.frames;
+    for (const e of fight.events) {
+      if (e.type !== 'ko' && e.type !== 'rescue') continue;
+      const s = document.createElement('span');
+      if (e.type === 'rescue') s.className = 'rescue';
+      s.style.left = `${((e.frame + pre) / total) * 100}%`;
+      s.title = e.text;
+      m.appendChild(s);
+    }
+  }
+  function syncLog() {
+    let now = null;
+    for (const li of logEl.children) {
+      const at = Number(li.dataset.at);
+      li.classList.toggle('past', at <= t);
+      li.classList.remove('now');
+      if (at <= t) now = li;
+    }
+    if (now) {
+      now.classList.add('now');
+      if (playing) {
+        const box = logEl.getBoundingClientRect(), r = now.getBoundingClientRect();
+        if (r.bottom > box.bottom || r.top < box.top) logEl.scrollTop += r.top - box.top - box.height / 2;
+      }
+    }
+  }
+  function syncButtons() {
+    el('play').textContent = playing ? 'Pause' : (t >= fight.result.frames ? 'Replay' : 'Play');
+    for (const b of el('speed').children) b.setAttribute('aria-pressed', String(Number(b.dataset.s) === speed));
+  }
+
+  function load(i) {
+    fight = DATA.fights[i];
+    pre = speeches().length * SAY_FRAMES;
+    t = -pre; playing = true;
+    el('title').textContent = fight.title;
+    el('subtitle').textContent = fight.subtitle;
+    scrub.min = String(-pre); scrub.max = String(fight.result.frames); scrub.value = String(t);
+    for (const [j, b] of [...el('tabs').children].entries()) b.setAttribute('aria-selected', String(j === i));
+    buildLog(); buildMarks(); syncButtons();
+    try { localStorage.setItem('arena-replay-fight', String(i)); } catch {}
+  }
+
+  // ---------- controls
+  DATA.fights.forEach((f, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab'; b.type = 'button'; b.setAttribute('role', 'tab');
+    b.textContent = f.title === 'Night of Rivals' ? `Night of Rivals · ${f.subtitle.split(' leading')[0]} leads` : f.title;
+    b.addEventListener('click', () => load(i));
+    el('tabs').appendChild(b);
+  });
+  [0.25, 0.5, 1, 2].forEach((s) => {
+    const b = document.createElement('button');
+    b.className = 'btn'; b.type = 'button'; b.dataset.s = s; b.textContent = `${s}×`;
+    b.addEventListener('click', () => { speed = s; syncButtons(); });
+    el('speed').appendChild(b);
+  });
+  el('play').addEventListener('click', () => {
+    if (t >= fight.result.frames) t = -pre;
+    playing = !playing; syncButtons();
+  });
+  scrub.addEventListener('input', () => { t = Number(scrub.value); playing = false; syncButtons(); });
+  el('showAll').addEventListener('change', buildLog);
+
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (playing) {
+      t += dt * FPS * speed;
+      if (t >= fight.result.frames) { t = fight.result.frames; playing = false; syncButtons(); }
+    }
+    scrub.value = String(Math.round(t));
+    el('clock').textContent = t < 0 ? 'before the bell' : `${(t / FPS).toFixed(1)}s / ${(fight.result.frames / FPS).toFixed(1)}s`;
+    render(!playing); syncLog();
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  let start = 0;
+  try { start = Number(localStorage.getItem('arena-replay-fight')) || 0; } catch {}
+  load(Math.min(start, DATA.fights.length - 1));
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { playing = false; t = 0; syncButtons(); }
+  requestAnimationFrame(tick);
+})();
+</script>

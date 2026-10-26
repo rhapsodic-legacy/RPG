@@ -617,6 +617,27 @@ Milestones 1 and 2 are independent and can be built in parallel.
 
 ---
 
+## 10a. Backlog from playtesting notes
+
+- **Fighter progression.** Stats, moves and upgrades the player unlocks per fighter (styles
+  such as traditional karate, signature moves, conditioning). Identical fighters should be
+  near impossible: build, style, unlocked moves and personality all differ.
+- **Situational awareness and team foresight.** Fighters read the matchup board before and
+  during a fight, in line with personality and experience: Jin spots that Tommy mirrors his
+  own build and style and suggests Martha take Tommy, or switch onto Tommy if he comes for
+  Jin. Teammates who privately know Bob will fold to Sting (even if Bob won't admit it)
+  weigh their own risks and gang up on Sting early — Martha modestly because Ox hits hard,
+  Jin all-in because Vex doesn't. Teams operate as teams, not three individuals.
+- **Time-bound conversations.** In the rendered house, conversations are back-and-forth
+  speech bubbles that take real time (a romantic talk might take 30 minutes), and moving,
+  eating, training, TV and the golf simulator all occupy fighters. This replaces the
+  abstract half-hour interaction slots that currently allow ~90 interactions a day.
+- **Recorded days.** Keep a day or a few days of full dialogue locally (text is tiny). A
+  journal line like "I talked to Jin today... fireworks" links to the actual conversation,
+  replayable as a scene; stretch goal: cinematic presentation.
+- **Rendering.** A first 2.5D replay viewer exists (`npm run replay`): it replays exported
+  fight traces with strike heights, targeting lines and pre-fight talk.
+
 ## 11. Open Questions
 
 - Tech stack confirmation (TypeScript + Three.js recommended).
