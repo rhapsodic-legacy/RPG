@@ -29,3 +29,7 @@ export * from './combat/knowledge';
 export * from './combat/policy';
 export * from './combat/fight';
 export * from './scenarios/sparring';
+export * from './combat/records';
+export * from './combat/talk';
+export * from './combat/tactics';
+export * from './scenarios/rival-night';

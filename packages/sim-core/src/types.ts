@@ -225,7 +225,11 @@ export type EventType =
   | 'recovery'
   | 'visit'
   | 'coach_spoke'
-  | 'reflection';
+  | 'reflection'
+  | 'speech'
+  | 'match_result'
+  | 'knockout'
+  | 'rescue';
 
 export interface UtteranceIntent {
   kind: 'encourage' | 'praise' | 'criticize' | 'command' | 'reassure' | 'question';
@@ -262,6 +266,10 @@ export interface WorldEvent {
   /** How the target of a confrontation responded. */
   confrontation?: { response: 'walked_away' | 'argued_back' | 'fought_back' | 'struck_first' };
   apology?: { accepted: boolean };
+  /** Something said before or during a fight (trash talk, a leader's address, a claim). */
+  speech?: { kind: SpeechKind; text: string; about?: FighterId; to?: FighterId };
+  match?: { sides: [FighterId[], FighterId[]]; winningSide: 0 | 1 | null; method: string; fightId: string };
+  rescue?: { from: FighterId };
   injury?: { days: number; cause: string };
   utterance?: {
     text: string;
@@ -270,6 +278,29 @@ export interface WorldEvent {
     interpretation: UtteranceInterpretation;
   };
   reflection?: { subject: EntityId; predicate: BeliefPredicate; object?: EntityId; owner: FighterId };
+}
+
+export type SpeechKind = 'assign' | 'claim' | 'priority' | 'pep' | 'nonsense' | 'taunt' | 'bark';
+
+/** A public record of a fight: who was there, who won, and who hurt whom. */
+export interface FightRecord {
+  id: string;
+  tick: Tick;
+  sides: [FighterId[], FighterId[]];
+  winningSide: 0 | 1 | null;
+  /** damage[attacker][defender] */
+  damage: Record<FighterId, Record<FighterId, number>>;
+  /** Builds at the time, so the record stays meaningful if fighters change or leave. */
+  bodies: Record<FighterId, Body>;
+}
+
+export interface ScheduledFight {
+  id: string;
+  tick: Tick;
+  sides: [FighterId[], FighterId[]];
+  /** Who leads each side, if anyone. Set by the player (home side) or the rival manager. */
+  leaders: [FighterId | null, FighterId | null];
+  label?: string;
 }
 
 export interface KitchenConfig {
@@ -282,6 +313,10 @@ export interface SimState {
   tick: Tick;
   layout: HouseLayout;
   fighters: Record<FighterId, Fighter>;
+  /** Fighters from other houses (rivals). They remember and feel, but don't live here. */
+  outsiders: Record<FighterId, Fighter>;
+  fightRecords: FightRecord[];
+  upcoming: ScheduledFight[];
   kitchens: Record<RoomId, KitchenConfig>;
   /** Romantic chemistry per unordered pair ("a|b"); attraction grows toward it. */
   chemistry: Record<string, number>;

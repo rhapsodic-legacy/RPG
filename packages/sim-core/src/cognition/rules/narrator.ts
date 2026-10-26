@@ -89,6 +89,19 @@ export class TemplateNarrator implements Narrator {
         const u = e.utterance!;
         return `Coach said "${u.text}"${u.focus ? ` to ${n(u.focus)}` : ''}${u.misaddressed ? ' (wrong name!)' : ''}.`;
       }
+      case 'speech':
+        return `${a}: "${e.speech?.text ?? ''}"`;
+      case 'match_result': {
+        const m = e.match!;
+        if (m.winningSide === null) return `${list(m.sides[0].map(n))} and ${list(m.sides[1].map(n))} fought to a draw.`;
+        const win = m.sides[m.winningSide];
+        const lose = m.sides[1 - m.winningSide]!;
+        return `${list(win.map(n))} beat ${list(lose.map(n))} (${m.method}).`;
+      }
+      case 'knockout':
+        return `${a} knocked out ${b}.`;
+      case 'rescue':
+        return `${a} came to ${b}'s rescue against ${e.rescue ? n(e.rescue.from) : 'their opponent'}.`;
       case 'reflection': {
         const r = e.reflection!;
         return `${n(r.owner)} has come to believe: "${beliefText(state, r.predicate, r.subject, r.object)}."`;

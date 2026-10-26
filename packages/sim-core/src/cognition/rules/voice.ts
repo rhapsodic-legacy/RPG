@@ -4,6 +4,8 @@
 import { teammateRefusals } from '../../mind/teams';
 import { COACH_ID, type FighterId, type Memory, type SimState, type Suggestion } from '../../types';
 import { unit } from '../../util/math';
+import { headToHead, perceivedEdge } from '../../combat/records';
+import { grudge } from '../../combat/talk';
 import { getFighter, nameOf, partnerOf, peekRel, roomsOfKind } from '../../world';
 import type { Correspondent, Diarist, MessageDraft } from '../providers';
 import { beliefText } from './narrator';
@@ -54,6 +56,24 @@ export class RuleDiarist implements Diarist {
           break;
         case 'injury':
           if (e.targets.includes(id)) lines.push(`Hurt. Stuck in the infirmary for ${e.injury?.days ?? 'a few'} days.`);
+          break;
+        case 'match_result': {
+          const mm = e.match!;
+          const mySide = mm.sides[0].includes(id) ? 0 : mm.sides[1].includes(id) ? 1 : null;
+          if (mySide === null) break;
+          lines.push(mm.winningSide === mySide ? 'We won tonight.' : mm.winningSide === null ? 'A draw. Nobody happy.' : 'We lost tonight.');
+          break;
+        }
+        case 'knockout':
+          if (e.targets.includes(id)) lines.push(`${n(e.actors[0]!)} knocked me out. ${peekRel(state, id, e.actors[0]!).resentment > 0.5 ? 'Again.' : ''}`.trim());
+          else if (e.actors.includes(id)) lines.push(`I put ${n(e.targets[0]!)} down.`);
+          break;
+        case 'rescue':
+          if (e.targets.includes(id)) lines.push(`${n(e.actors[0]!)} jumped in for me against ${n(e.rescue!.from)}.${m.emotions.shame > 0.1 ? " I didn't ask for that." : ''}`);
+          else if (e.actors.includes(id)) lines.push(`${n(e.targets[0]!)} was going down. I couldn't just watch.`);
+          break;
+        case 'speech':
+          if (e.speech?.kind === 'taunt' && e.speech.about === id) lines.push(`${n(e.actors[0]!)} ran their mouth at me before the bell.`);
           break;
         case 'reflection': {
           const r = e.reflection!;
@@ -180,6 +200,33 @@ export class RuleCorrespondent implements Correspondent {
         subject: `${n(t.about[0]!)} and ${n(t.about[1]!)}`,
         body: `${n(t.about[0]!)} and ${n(t.about[1]!)} are at each other's throats and I'm stuck in the middle. I don't know what to do. Can you help?`,
         suggestions: [{ kind: 'talk_to', about: t.about, text: `Talk to ${n(t.about[0]!)} and ${n(t.about[1]!)}.` }],
+      });
+    }
+
+    // Fights coming up: would I be the better one to lead?
+    for (const fight of state.upcoming) {
+      const side = fight.sides[0].includes(id) ? 0 : fight.sides[1].includes(id) ? 1 : null;
+      if (side === null) continue;
+      const leader = fight.leaders[side];
+      if (!leader || leader === id || !state.fighters[leader]) continue;
+      const opponents = fight.sides[1 - side]!;
+      // Who will the leader go after? Whoever they hold the biggest grudge against.
+      const wanted = [...opponents].sort((a, b) => grudge(state, leader, b) - grudge(state, leader, a) || (a < b ? -1 : 1))[0]!;
+      if (grudge(state, leader, wanted) < 0.4) continue;
+      const mine = perceivedEdge(state, id, wanted);
+      const theirs = perceivedEdge(state, leader, wanted, id);
+      const ambition = 0.3 * unit(f.temperament.pragmatism) + 0.2 * unit(f.temperament.ego) + 0.1 * unit(f.temperament.courage);
+      if (mine - theirs < 0.5 - ambition) continue;
+      const { lost } = headToHead(state, leader, wanted);
+      out.push({
+        topic: `lead:${fight.id}`,
+        about: [leader, wanted],
+        subject: `Let me lead against ${n(wanted)}'s team`,
+        body:
+          `Coach, make me the leader for the fight against ${namesList(opponents.map(n)).replace(/ or /, ' and ')}. ` +
+          `${n(wanted)} ${lost >= 2 ? `has beaten ${n(leader)} every time they've met` : `is a bad matchup for ${n(leader)}`}, but ${n(wanted)} struggles against fighters built like me — the record shows it. ` +
+          `${n(leader)} will want ${n(wanted)} no matter what. If I'm leading, I can take ${n(wanted)} myself and ${n(leader)} gets someone they can beat.`,
+        suggestions: [{ kind: 'talk_to', about: [leader], text: `Make ${n(id)} the leader, or talk ${n(leader)} out of taking ${n(wanted)}.` }],
       });
     }
 

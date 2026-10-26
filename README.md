@@ -33,6 +33,9 @@ npm run sim -- --journal martha --inbox   # read a journal and the manager's inb
 npm run fight -- --a brick --b shell --log        # sparring gym, play-by-play
 npm run fight -- --a duke --b shell --rounds 4    # watch learning across fights
 npm run fight -- --scenario love-triangle --days 14 --a bob --b jin   # after two weeks of drama
+
+npm run match                     # 3v3 "Night of Rivals": inbox, pre-fight talk, fight, aftermath
+npm run match -- --leader martha  # same night, different leader (or --leader none)
 ```
 
 In the love-triangle scenario only one thing is scripted: Bob gets injured on day 2.

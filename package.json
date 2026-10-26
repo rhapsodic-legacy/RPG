@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "tsx packages/sim-headless/src/cli.ts",
-    "fight": "tsx packages/sim-headless/src/fight.ts"
+    "fight": "tsx packages/sim-headless/src/fight.ts",
+    "match": "tsx packages/sim-headless/src/match.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

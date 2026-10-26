@@ -4,7 +4,7 @@ import { GOSSIP_WORTHY, recencyOf } from '../../mind/memory';
 import { unaddressedGrievance } from '../../sim/perception';
 import type { FighterId, SimState } from '../../types';
 import { unit } from '../../util/math';
-import { bond, cooldownReady, getFighter, partnerOf, peekRel } from '../../world';
+import { bond, getFighter, partnerOf, peekRel } from '../../world';
 import type { ConfrontationResponse, InteractionChoice, InteractionPolicy } from '../providers';
 
 /** Minimum utility for a fighter to bother engaging at all. */
@@ -131,11 +131,12 @@ export class RuleInteractionPolicy implements InteractionPolicy {
     const t = me.temperament;
     const myPartner = partnerOf(state, actor);
     let best: InteractionChoice | null = null;
-    // `pacing` stops the same small gesture (a chat, a flirt) repeating every half
-    // hour; it is not a limit on any psychological process.
-    const consider = (choice: InteractionChoice, pacing = 0) => {
+    // `pacing` (slots) was a cap on repeating the same small gesture (a chat, a flirt).
+    // PACING LIMITS DISABLED: observing how behaviour grows without them before
+    // deciding which limits are needed, and how. To restore, uncomment below.
+    const consider = (choice: InteractionChoice, _pacing = 0) => {
       if (choice.utility < THRESHOLD) return;
-      if (pacing && !cooldownReady(state, interactionCooldownKey(choice.kind, actor, choice.target), pacing)) return;
+      // if (_pacing && !cooldownReady(state, interactionCooldownKey(choice.kind, actor, choice.target), _pacing)) return;
       if (!best || choice.utility > best.utility) best = choice;
     };
 

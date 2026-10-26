@@ -42,7 +42,7 @@ export function integrate(
   // Anything that made me resent someone is a grievance I may want to have out with them.
   const tags = [...appraisal.tags];
   for (const d of appraisal.deltas) {
-    if ((d.resentment ?? 0) >= GRIEVANCE_MIN && state.fighters[d.toward]) tags.push(`grievance:${d.toward}`);
+    if ((d.resentment ?? 0) >= GRIEVANCE_MIN && (state.fighters[d.toward] || state.outsiders[d.toward])) tags.push(`grievance:${d.toward}`);
   }
   f.state.importanceSinceReflection += appraisal.importance;
   if (GOSSIP_WORTHY.has(event.type) && !f.known.includes(event.id)) f.known.push(event.id);

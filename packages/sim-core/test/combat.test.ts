@@ -87,19 +87,21 @@ describe('fights', () => {
   it('distraction at home costs you in the arena', () => {
     expect(reactionDelay(0.2, 0)).toBeGreaterThan(reactionDelay(1, 0));
     const ids = ['brick', 'shell', 'wren', 'duke'];
-    const taken = (focus: number) => {
+    // Net damage (dealt minus taken) across every matchup.
+    const net = (focus: number) => {
       let total = 0;
       for (const me of ids) {
         for (const opp of ids) {
           if (me === opp) continue;
           const s = createState(sparringGym());
           s.fighters[me]!.state.focus = focus;
-          total += runFight(s, opp, me).stats[me]!.damageTaken;
+          const st = runFight(s, opp, me).stats[me]!;
+          total += st.damageDealt - st.damageTaken;
         }
       }
       return total;
     };
-    expect(taken(0.2)).toBeGreaterThan(taken(1));
+    expect(net(0.2)).toBeLessThan(net(1) - 50);
   });
 
   it('the curious learn from their misses faster than the stubborn', () => {

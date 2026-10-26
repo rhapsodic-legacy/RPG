@@ -28,14 +28,14 @@ export function fighterList(state: SimState): Fighter[] {
 }
 
 export function getFighter(state: SimState, id: FighterId): Fighter {
-  const f = state.fighters[id];
+  const f = state.fighters[id] ?? state.outsiders[id];
   if (!f) throw new Error(`Unknown fighter: ${id}`);
   return f;
 }
 
 export function nameOf(state: SimState, id: EntityId): string {
   if (id === 'coach') return 'Coach';
-  const f = state.fighters[id];
+  const f = state.fighters[id] ?? state.outsiders[id];
   if (f) return f.def.name;
   const room = state.layout.rooms.find((r) => r.id === id);
   return room ? room.name : id;
@@ -77,7 +77,7 @@ export function rel(state: SimState, from: FighterId, to: EntityId): Relationshi
 
 /** Read-only peek that does not create an entry. */
 export function peekRel(state: SimState, from: FighterId, to: EntityId): Relationship {
-  return state.fighters[from]?.relationships[to] ?? emptyRelationship();
+  return (state.fighters[from] ?? state.outsiders[from])?.relationships[to] ?? emptyRelationship();
 }
 
 const SIGNED_AXES = new Set(['affection', 'respect', 'trust']);

@@ -491,6 +491,31 @@ Separate from episodic memory: fighters learn what works.
   has been. Learning rate from curiosity/discipline vs ego. Curiosity also drives trying
   untested moves; impatience builds for aggressive fighters when nothing lands.
 
+### 6.3b Team fights (first pass)
+
+No captain mechanic and no obedience rule. Instead:
+
+- **Talk comes from personality.** Before the bell, whoever leads speaks the way they lead:
+  a domineering leader (Bob) hands out matchups and claims his rival; a strategist (Martha)
+  names a priority ("take out their fastest guy, then do your thing"); an inspirer gives a
+  pep talk; an incompetent leader talks nonsense. Anyone can speak up: personal claims
+  ("Sting is mine. Stay out of it."), trash talk (Sting at Bob) — shown as speech bubbles.
+- **Nobody has to listen.** What's said becomes soft influences on each listener, weighted
+  by how much they *heed* the speaker: trust, respect and fondness against resentment;
+  discipline makes you listen, ego makes you not. Taunts rile the proud and volatile and
+  pull them toward the taunter.
+- **Every moment, each fighter weighs who to fight:** grudges and head-to-head history,
+  believed matchups (from the public fight record and fighters of similar build, corrected
+  by how the exchange is actually going), worry for teammates (bond × how badly they're
+  doing, with foresight for the pragmatic), finishing hurt opponents, glory, fear,
+  distance, and what they were told — discounted when it stops making sense ("leave him to
+  me" means less when the one who said it is going down).
+- **Holding back is a choice, not a rule.** Wanting an opponent someone else claimed can
+  win out as *hovering*: shadow them, keep your guard and your stamina — until the weights
+  shift and you go in. Watching a friend take a beating builds rage.
+- **Rhythm and range are personal.** The hot-blooded act on instinct, the disciplined wait
+  a beat; distraction shows up as slower reactions, missed openings and misjudged range.
+
 ### 6.4 Combat → memory
 
 Fights emit `WorldEvent`s: rescues, abandonments, humiliations, comebacks, knockouts, the
@@ -582,8 +607,8 @@ Milestones 1 and 2 are independent and can be built in parallel.
 | 1 | **Headless 1v1 combat** — geometry, stances, contact quality, personality-driven choices, matchup learning, focus from home ✅ *first pass done* | Personality + body produce visibly different fights (the crouch-vs-punch effect) |
 | 2 | **Headless social sim** — events, perception, appraisal, memory, retrieval, reflection, relationships, gossip, encounters, apologies; text log output; LLM seams ✅ *first pass done* | Bob/Jin/Martha-style drama emerges unscripted |
 | 2b | **Lies & manipulation, gifts, mediation** — fabricated gossip with provenance the player can trace; player social actions | Pot-stirring is discoverable and counterable |
-| 3 | **3v3 combat** + team behaviour + combat → memory events | Relationships change fights |
-| 4 | **Close the loop** — home week → fight → home week; match types & stakes; manager perception (multi-axis); departures | The core loop is fun in text |
+| 3 | **3v3 combat** + team behaviour + combat → memory events ✅ *first pass done* | Relationships change fights |
+| 4 | **Close the loop** — home week → fight → home week (✅ scheduled fights, KOs, rescues, taunts, injuries, journals, fight record, leadership requests); match types & stakes; manager perception (multi-axis); departures | The core loop is fun in text |
 | 5 | **2.5D client** — arena rendering, house view, inspectors | Readability; does 2.5D look good enough? |
 | 6 | **In-fight interventions** — towel, crowd actions as retrieval cues | Player agency during auto-battles |
 | 7 | **LLM chat** — grounded in memory, intents → events | "Get a feel" for the team |

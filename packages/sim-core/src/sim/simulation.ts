@@ -14,7 +14,11 @@ import {
   TICKS_PER_WEEK,
   type Tick,
 } from '../time';
-import type { FighterId, SimState, UtteranceInterpretation, WorldEvent } from '../types';
+import type { FighterId, ScheduledFight, SimState, UtteranceInterpretation, WorldEvent } from '../types';
+import { maxHp } from '../combat/body';
+import { runTeamFight } from '../combat/fight';
+import { recordFight } from '../combat/records';
+import type { FightResult } from '../combat/types';
 import { clamp01, fnv1a } from '../util/math';
 import {
   applyRelDelta,
@@ -22,11 +26,10 @@ import {
   fighterList,
   getFighter,
   isAsleep,
+  isInjured,
   occupants,
-  pairKey,
   partnerOf,
   peekRel,
-  cooldownReady,
   touchCooldown,
   setLabel,
 } from '../world';
@@ -91,6 +94,7 @@ export class Simulation {
     };
 
     for (const input of inputs) this.applyInput(input, emit);
+    for (const fight of s.upcoming.filter((f) => f.tick === s.tick)) this.runScheduledFight(fight, emit);
     this.updateStatuses(emit);
     this.planAndMove(emit);
     this.updateNeeds();
@@ -232,9 +236,87 @@ export class Simulation {
       case 'set_cooks':
         s.kitchens[input.kitchen] = { cooks: [...input.cooks] };
         break;
+      case 'schedule_fight':
+        s.upcoming.push(structuredClone(input.fight));
+        break;
+      case 'set_leader': {
+        const fight = s.upcoming.find((f) => f.id === input.fightId);
+        if (fight) fight.leaders[input.side] = input.leader;
+        break;
+      }
     }
     this.journal.push({ tick: s.tick, input });
   }
+
+  // ------------------------------------------------------------ the arena
+
+  /** Run a fight that has come due, and bring what happened home. */
+  private runScheduledFight(fight: ScheduledFight, emit: (d: EventDraft) => WorldEvent): void {
+    const s = this.state;
+    s.upcoming = s.upcoming.filter((f) => f.id !== fight.id);
+    // The injured can't fight.
+    const sides = fight.sides.map((side) => side.filter((id) => !isInjured(getFighter(s, id), s.tick))) as [FighterId[], FighterId[]];
+    if (sides[0].length === 0 || sides[1].length === 0) return;
+    const result = runTeamFight(s, sides, { leaders: fight.leaders });
+    this.lastFight = { fight, result };
+    recordFight(s, fight.id, sides, result.winningSide, result.damage);
+
+    const participants = [...sides[0], ...sides[1]];
+    const watchers = [...new Set([...participants, ...fighterIds(s)])].sort();
+    for (const act of result.speech) {
+      if (!act.text) continue;
+      emit({
+        type: 'speech',
+        actors: [act.speaker],
+        targets: act.about && act.kind === 'taunt' ? [act.about] : [],
+        location: 'arena',
+        intensity: act.kind === 'taunt' ? 0.5 : 0.3,
+        public: false,
+        witnesses: [...new Set([act.speaker, ...act.audience])].sort(),
+        speech: { kind: act.kind, text: act.text, ...(act.about ? { about: act.about } : {}), ...(act.to ? { to: act.to } : {}) },
+      });
+    }
+    for (const r of result.rescues) {
+      emit({ type: 'rescue', actors: [r.by], targets: [r.of], location: 'arena', intensity: 0.6, public: false, witnesses: participants, rescue: { from: r.from } });
+    }
+    for (const ko of result.kos) {
+      emit({ type: 'knockout', actors: [ko.by], targets: [ko.of], location: 'arena', intensity: 0.8, public: false, witnesses: watchers });
+    }
+    const winners = result.winningSide === null ? [] : sides[result.winningSide];
+    const losers = result.winningSide === null ? [...sides[0], ...sides[1]] : sides[1 - result.winningSide]!;
+    emit({
+      type: 'match_result',
+      actors: winners,
+      targets: losers,
+      location: 'arena',
+      intensity: 0.8,
+      public: false,
+      witnesses: watchers,
+      match: { sides, winningSide: result.winningSide, method: result.method, fightId: fight.id },
+    });
+    // Bodies pay: knockouts and beatings put people in the infirmary.
+    for (const id of participants) {
+      const f = getFighter(s, id);
+      const severity = result.stats[id]!.damageTaken / maxHp(f.def.body);
+      const knockedOut = result.kos.some((k) => k.of === id);
+      const days = knockedOut ? 2 + Math.round(10 * severity) : severity > 0.6 ? Math.round(5 * severity) : 0;
+      if (days > 0) {
+        emit({
+          type: 'injury',
+          actors: [],
+          targets: [id],
+          location: f.state.location,
+          intensity: 0.7,
+          public: false,
+          witnesses: [id],
+          injury: { days, cause: knockedOut ? 'knocked out in the arena' : 'beaten up in the arena' },
+        });
+      }
+    }
+  }
+
+  /** The most recent fight's full result (for play-by-play tooling). */
+  lastFight: { fight: ScheduledFight; result: FightResult } | null = null;
 
   // ------------------------------------------------------------ home loop
 
@@ -347,9 +429,10 @@ export class Simulation {
           const a = trainees[i]!.def.id;
           const b = trainees[j]!.def.id;
           if (peekRel(s, a, b).resentment >= 0.4 || peekRel(s, b, a).resentment >= 0.4) continue;
-          const key = `spar:${pairKey(a, b)}`;
-          if (!cooldownReady(s, key, TICKS_PER_DAY)) continue;
-          touchCooldown(s, key);
+          // PACING LIMIT DISABLED (once a day per pair) — see interaction.ts.
+          // const key = `spar:${pairKey(a, b)}`;
+          // if (!cooldownReady(s, key, TICKS_PER_DAY)) continue;
+          // touchCooldown(s, key);
           emit({ type: 'sparring', actors: [a], targets: [b], location: room.id, intensity: 0.25, public: true });
         }
       }

@@ -1,7 +1,10 @@
 import { emptyKnowledge } from '../combat/knowledge';
 import { zeroEmotions } from '../emotion';
 import type {
+  Fighter,
   FighterDef,
+  FightRecord,
+  ScheduledFight,
   HouseLayout,
   KitchenConfig,
   RelLabel,
@@ -27,6 +30,40 @@ export interface Scenario {
   chemistry?: Record<string, number>;
   relationships?: InitialRelationship[];
   startTick?: Tick;
+  /** Fighters from rival houses. */
+  outsiders?: FighterDef[];
+  /** Fights that happened before the scenario starts (public record). */
+  fightRecords?: FightRecord[];
+  upcoming?: ScheduledFight[];
+}
+
+export function makeFighter(def: FighterDef): Fighter {
+  return {
+    def: structuredClone(def),
+    temperament: { ...def.temperament },
+    state: {
+      location: def.bedroomId,
+      activity: 'relax',
+      needs: { fullness: 0.7, energy: 0.8, social: 0.6, comfort: 0.7 },
+      mood: zeroEmotions(),
+      injuredUntil: null,
+      shakenUntil: null,
+      lastMeal: null,
+      lastVisit: {},
+      lastSeen: {},
+      focus: 1,
+      intents: [],
+      importanceSinceReflection: 0,
+      raisedTopics: [],
+    },
+    relationships: {},
+    memories: [],
+    known: [],
+    beliefs: [],
+    threads: [],
+    diary: [],
+    combat: emptyKnowledge(),
+  };
 }
 
 export function createState(scenario: Scenario): SimState {
@@ -35,6 +72,9 @@ export function createState(scenario: Scenario): SimState {
     tick: scenario.startTick ?? WAKE_SLOT,
     layout: structuredClone(scenario.layout),
     fighters: {},
+    outsiders: {},
+    fightRecords: structuredClone(scenario.fightRecords ?? []),
+    upcoming: structuredClone(scenario.upcoming ?? []),
     kitchens: structuredClone(scenario.kitchens),
     chemistry: {},
     events: [],
@@ -44,34 +84,8 @@ export function createState(scenario: Scenario): SimState {
     cooldowns: {},
   };
 
-  for (const def of [...scenario.fighters].sort((a, b) => (a.id < b.id ? -1 : 1))) {
-    state.fighters[def.id] = {
-      def: structuredClone(def),
-      temperament: { ...def.temperament },
-      state: {
-        location: def.bedroomId,
-        activity: 'relax',
-        needs: { fullness: 0.7, energy: 0.8, social: 0.6, comfort: 0.7 },
-        mood: zeroEmotions(),
-        injuredUntil: null,
-        shakenUntil: null,
-        lastMeal: null,
-        lastVisit: {},
-        lastSeen: {},
-        focus: 1,
-        intents: [],
-        importanceSinceReflection: 0,
-        raisedTopics: [],
-      },
-      relationships: {},
-      memories: [],
-      known: [],
-      beliefs: [],
-      threads: [],
-      diary: [],
-      combat: emptyKnowledge(),
-    };
-  }
+  for (const def of [...scenario.fighters].sort((a, b) => (a.id < b.id ? -1 : 1))) state.fighters[def.id] = makeFighter(def);
+  for (const def of [...(scenario.outsiders ?? [])].sort((a, b) => (a.id < b.id ? -1 : 1))) state.outsiders[def.id] = makeFighter(def);
 
   for (const [key, value] of Object.entries(scenario.chemistry ?? {})) {
     const [a, b] = key.split('|');
@@ -80,7 +94,7 @@ export function createState(scenario: Scenario): SimState {
 
   for (const r of scenario.relationships ?? []) {
     const { from, to, labels, ...axes } = r;
-    const f = state.fighters[from];
+    const f = state.fighters[from] ?? state.outsiders[from];
     if (!f) throw new Error(`Unknown fighter in relationship: ${from}`);
     f.relationships[to] = { ...emptyRelationship(), ...axes, labels: [...(labels ?? [])].sort() };
   }

@@ -59,7 +59,7 @@ export function buildMindContext(
   const f = getFighter(state, id);
   const ready = readiness(state, id);
   const relIds = Object.keys(f.relationships)
-    .filter((o) => o === COACH_ID || state.fighters[o])
+    .filter((o) => o === COACH_ID || state.fighters[o] || state.outsiders[o])
     .sort();
   return {
     fighter: {

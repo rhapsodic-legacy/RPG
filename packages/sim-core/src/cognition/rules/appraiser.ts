@@ -302,6 +302,78 @@ export class RuleAppraiser implements Appraiser {
         break;
       }
 
+      case 'speech': {
+        const sp = event.speech!;
+        if (sp.kind === 'taunt' && sp.about === me && other) {
+          f.humiliation = 0.35;
+          deltas.push({ toward: event.actors[0]!, resentment: 0.1 * (0.5 + unit(t.ego)), respect: -0.03 });
+        } else if (sp.kind === 'pep' && role === 'witness') {
+          f.pleasure = 0.2;
+        }
+        break;
+      }
+
+      case 'match_result': {
+        const m = event.match!;
+        const mySide = m.sides[0].includes(me) ? 0 : m.sides[1].includes(me) ? 1 : null;
+        if (mySide !== null) {
+          if (m.winningSide === mySide) {
+            f.achievement = 0.6;
+            for (const mate of m.sides[mySide]) if (mate !== me) deltas.push({ toward: mate, affection: 0.03, respect: 0.03 });
+          } else if (m.winningSide !== null) {
+            f.humiliation = 0.4;
+            f.loss = 0.3;
+          }
+        } else {
+          // Watching from home: cheering for housemates.
+          let care = 0;
+          let side: 0 | 1 = 0;
+          for (const s of [0, 1] as const) {
+            for (const p of m.sides[s]) {
+              const b = bond(state, me, p);
+              if (b > care) {
+                care = b;
+                side = s;
+              }
+            }
+          }
+          if (m.winningSide === side) f.pleasure = 0.3 * care;
+          else if (m.winningSide !== null) f.loss = 0.3 * care;
+        }
+        break;
+      }
+
+      case 'knockout': {
+        if (role === 'target' && other) {
+          f.humiliation = 0.6;
+          f.threat = 0.5;
+          deltas.push({ toward: other, resentment: 0.15 * (0.5 + unit(t.ego)), fear: 0.1 * (1 - unit(t.courage)), respect: 0.05 });
+        } else if (role === 'actor') {
+          f.achievement = 0.5;
+        } else {
+          const victim = event.targets[0];
+          if (victim) f.loss = Math.max(0, bond(state, me, victim)) * 0.4;
+        }
+        break;
+      }
+
+      case 'rescue': {
+        if (role === 'target' && other) {
+          f.gratitude = 0.6;
+          deltas.push({ toward: other, affection: 0.06, trust: 0.08, respect: 0.04 });
+          // Someone stepping into the fight I claimed: a proud fighter feels undermined too.
+          const claimed = event.rescue && peekRel(state, me, event.rescue.from).resentment > 0.4;
+          if (claimed) {
+            f.humiliation = 0.3 * unit(t.ego);
+            deltas.push({ toward: other, resentment: 0.04 * unit(t.ego) });
+          }
+        } else if (role === 'actor' && other) {
+          f.achievement = 0.3;
+          deltas.push({ toward: other, affection: 0.03 });
+        }
+        break;
+      }
+
       case 'coach_spoke':
         this.coachUtterance(state, me, event, f, deltas, tags);
         break;

@@ -2,7 +2,7 @@
 // fights go 3v3), y is height. Distances are in centimetres; time is in frames
 // at 30 frames per second.
 
-import type { FighterId } from '../types';
+import type { FighterId, SpeechKind } from '../types';
 
 export const FPS = 30;
 
@@ -66,7 +66,23 @@ export interface Action {
   resolved?: boolean;
   /** For stance changes: the stance being moved to. */
   toStance?: Stance;
+  /** For attacks: who it's aimed at. */
+  target?: FighterId;
 }
+
+/**
+ * A soft pull on a fighter's choices, from something someone said (or their own
+ * resolve). Weights are how much the fighter takes it to heart.
+ */
+export interface Influence {
+  from: FighterId;
+  kind: 'focus' | 'avoid' | 'morale';
+  target?: FighterId;
+  weight: number;
+}
+
+/** engage: fight this opponent. hover: stay near them, conserve, wait. */
+export type EngageMode = 'engage' | 'hover';
 
 export interface CombatStats {
   attempts: Partial<Record<MoveId, number>>;
@@ -83,6 +99,11 @@ export interface CombatStats {
 export interface Combatant {
   id: FighterId;
   side: 0 | 1;
+  /** Knocked out: no longer in the fight. */
+  out: boolean;
+  target: FighterId | null;
+  mode: EngageMode;
+  influences: Influence[];
   x: number;
   z: number;
   stance: Stance;
@@ -106,7 +127,7 @@ export interface Combatant {
 
 export interface FightEvent {
   frame: number;
-  type: 'contact' | 'knockdown' | 'ko' | 'taunt' | 'stance' | 'time';
+  type: 'contact' | 'knockdown' | 'ko' | 'taunt' | 'stance' | 'time' | 'speech' | 'switch' | 'rescue';
   attacker?: FighterId;
   defender?: FighterId;
   move?: MoveId;
@@ -116,8 +137,35 @@ export interface FightEvent {
   text: string;
 }
 
+export interface SpeechAct {
+  frame: number;
+  speaker: FighterId;
+  audience: FighterId[];
+  kind: SpeechKind;
+  text: string;
+  /** Who it's about (the claimed or prioritised opponent, the taunt's target...). */
+  about?: FighterId;
+  /** For assignments: who is being told. */
+  to?: FighterId;
+}
+
+export interface Rescue {
+  frame: number;
+  by: FighterId;
+  of: FighterId;
+  from: FighterId;
+}
+
 export interface FightResult {
+  /** 1v1: the winner. Teams: the first fighter of the winning side. */
   winner: FighterId | null;
+  winningSide: 0 | 1 | null;
+  sides: [FighterId[], FighterId[]];
+  kos: { of: FighterId; by: FighterId; frame: number }[];
+  rescues: Rescue[];
+  speech: SpeechAct[];
+  /** damage[attacker][defender] */
+  damage: Record<FighterId, Record<FighterId, number>>;
   method: 'ko' | 'decision' | 'draw';
   frames: number;
   events: FightEvent[];

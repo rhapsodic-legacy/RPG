@@ -7,7 +7,7 @@ import { clamp01, unit } from '../util/math';
 import { radius } from './body';
 import { expectedValue, threatOf } from './knowledge';
 import { MOVE_IDS, MOVES } from './moves';
-import type { Combatant, MoveId, Stance } from './types';
+import type { Combatant, EngageMode, MoveId, Stance } from './types';
 
 export interface CombatView {
   frame: number;
@@ -16,6 +16,8 @@ export interface CombatView {
   opponent: Combatant;
   opponentFighter: Fighter;
   distance: number;
+  /** engage the opponent, or hover near them conserving strength. */
+  mode: EngageMode;
 }
 
 export type CombatDecision =
@@ -62,6 +64,7 @@ export class RuleCombatPolicy implements CombatPolicy {
   decide(view: CombatView): CombatDecision {
     const { me, opponent, meFighter } = view;
     const t = meFighter.temperament;
+    if (view.mode === 'hover') return this.hover(view);
     const hpRatio = me.hp / me.maxHp;
     const oppHpRatio = opponent.hp / opponent.maxHp;
     const oppBusy = opponent.action.kind === 'attack' || opponent.action.kind === 'stagger' || opponent.action.kind === 'down';
@@ -141,6 +144,16 @@ export class RuleCombatPolicy implements CombatPolicy {
     return best.d;
   }
 
+  /** Shadow the opponent at a distance, keep your guard and your breath. */
+  private hover(view: CombatView): CombatDecision {
+    const { me, meFighter } = view;
+    const want = preferredStance(meFighter.temperament);
+    if (want !== me.stance) return { kind: 'stance', to: want };
+    if (view.distance > 260) return { kind: 'advance', frames: 6 };
+    if (view.distance < 190) return { kind: 'retreat', frames: 6 };
+    return { kind: 'guard', frames: 8 };
+  }
+
   react(view: CombatView, incoming: MoveId): CombatReaction {
     const { me, meFighter } = view;
     const t = meFighter.temperament;
@@ -168,11 +181,17 @@ export class RuleCombatPolicy implements CombatPolicy {
   }
 }
 
-/** Starting feelings for a fight, from life at home and history with the opponent. */
-export function startingFeelings(me: Fighter, opponentId: string): { rage: number; fear: number } {
-  const r = me.relationships[opponentId];
+/** Starting feelings for a fight, from life at home and history with the opponents. */
+export function startingFeelings(me: Fighter, opponentIds: string[]): { rage: number; fear: number } {
+  let resentment = 0;
+  let fear = 0;
+  for (const id of opponentIds) {
+    const r = me.relationships[id];
+    resentment = Math.max(resentment, r?.resentment ?? 0);
+    fear = Math.max(fear, r?.fear ?? 0);
+  }
   return {
-    rage: clamp01(me.state.mood.anger * 0.5 + (r?.resentment ?? 0) * 0.5),
-    fear: clamp01(me.state.mood.fear * 0.5 + (r?.fear ?? 0) * 0.5),
+    rage: clamp01(me.state.mood.anger * 0.5 + resentment * 0.5),
+    fear: clamp01(me.state.mood.fear * 0.5 + fear * 0.5),
   };
 }
