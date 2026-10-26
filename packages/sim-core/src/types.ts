@@ -156,7 +156,7 @@ export interface FighterState {
 
 export interface Fighter {
   def: FighterDef;
-  /** Live temperament; drifts slowly from core memories. */
+  /** Live temperament. Only changes through explicit causes (none yet). */
   temperament: Temperament;
   state: FighterState;
   relationships: Record<EntityId, Relationship>;

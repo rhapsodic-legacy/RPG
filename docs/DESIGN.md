@@ -28,6 +28,13 @@ Two stages, one mind:
 4. **Matchups from geometry, not type charts.** Fighter A's punch works on Fighter B but
    not Fighter C because C is always crouched — not because of a rock-paper-scissors table.
 5. **Legibility.** The player must be able to see *why* something happened.
+6. **No invisible hand.** Nothing decays, heals, drifts or resets on a timer to keep
+   fighters manageable. Resentment does not fade by itself, an ex is not forgotten by
+   itself, beliefs do not expire, personalities do not drift. Every change has a cause in
+   the world: an event, a conversation, a gift, a manipulation, a match. Relationships are
+   *purposefully* hard to manage, and neglect has a real price: fighters can leave for good.
+   (Physiology is the exception: hunger, fatigue, injuries healing, and momentary feelings
+   settling. Lasting state never does.)
 
 ### Decisions so far
 
@@ -42,6 +49,28 @@ Two stages, one mind:
 | Substances (PEDs etc.) | Down the road. Hooks into state/temperament modifiers. |
 
 ---
+
+## 1a. Management Philosophy
+
+- **Difficult by design.** Unlike The Sims, the house is not self-balancing. Left alone,
+  a feud escalates; it does not cool off.
+- **Fighters can walk out permanently.** Neglect, mistreatment and a broken relationship
+  with the manager end in departures.
+- **Many levers, none guaranteed:** house layout, room assignments, schedules, gifts,
+  talking (later: free-form chat), mediation, discipline, and manipulation.
+- **Manipulation is a strategy, for both sides.** Fighters can lie and stir the pot
+  (e.g. Sally, who likes Bob, feeds lies into the Bob–Jin feud). The player can uncover
+  it through logs and by talking to people, and can respond however they choose — up to
+  and including deliberately throwing a troublemaker into a brutal, outclassed match.
+- **The house is watching the manager.** Fighters perceive the manager's actions and form
+  their own (multi-axis) relationship with the manager: trust, affection, respect, fear.
+  Sending fighters who don't obey into horrific matches lowers trust and affection
+  house-wide, not just with the victim.
+- **Roster economics.** Long-run incentive: nurture no-name street fighters who jive
+  together. Short-run: hire big names as mercenaries for power, a matchup or a tournament
+  — or cynically hire a talented jerk just to burn in a high-stakes match for the entry pay.
+- **Match types and stakes.** Different match types with escalating brutality; higher
+  stakes mean greater rewards and greater risk of severe injury or worse.
 
 ## 2. Core Loop
 
@@ -70,7 +99,7 @@ Each fighter is a stack of layers that change at different rates.
 | Layer | Rate of change | Contents |
 |---|---|---|
 | **Body** | Rare (training, injury, age) | Height, mass, limb reach, hurtbox proportions, strength, speed, stamina, moveset |
-| **Temperament** | ~Never (slow drift from defining memories) | The personality vector |
+| **Temperament** | Only through explicit causes (e.g. future substances) | The personality vector |
 | **Disposition** | Slow (weeks) | Confidence, outlook, trust in the manager, learned fears/aversions |
 | **Relationships** | Event-driven | Directed, multi-axis edges to every known person (see §4.6) |
 | **Beliefs** | Nightly reflection | Structured conclusions drawn from memories (may be false) |
@@ -181,7 +210,7 @@ interface Memory {
   createdAt: Tick;
   lastRecalled: Tick;
   recallCount: number;
-  core: boolean;               // defining memory; never decays, can drift temperament
+  core: boolean;               // defining memory; never pruned
   gloss: string;               // template-rendered NL: "Martha kissed Jin in Kitchen A."
 }
 ```
@@ -264,8 +293,7 @@ interface Belief {
 - Contradicting evidence lowers confidence; beliefs below a floor are dropped.
 - Reflections themselves become memories (source `inferred`) so they can be retrieved and
   gossiped — exactly like Smallville's reflection tree.
-- High-importance memories are flagged `core`; core memories slowly **drift temperament**
-  (a humiliating loss can make a cocky fighter more cautious over a season).
+- High-importance memories are flagged `core` and are never pruned.
 
 ### 4.8 Goals, plans and open threads
 
@@ -282,8 +310,9 @@ interface Belief {
 So Martha's **Distracted** status isn't hand-scripted — it is high preoccupation from
 being caught between two hostile men, and the UI surfaces it as "Distracted".
 
-Threads resolve through: conversation events, time (slowly), catharsis (winning a fight
-side by side), player intervention, or escalation (a blow-up that ends it, for better or worse).
+Threads resolve only through events: apologies, conversations, catharsis (winning a fight
+side by side), player intervention, or escalation (a blow-up that ends it, for better or
+worse). **Never through the mere passage of time** (see pillar 6).
 
 ### 4.9 Encounters & shared spaces
 
@@ -525,8 +554,9 @@ Milestones 1 and 2 are independent and can be built in parallel.
 |---|---|---|
 | 1 | **Headless 1v1 combat** — geometry, stances, contact quality, 3 temperament axes | Personality + body produce visibly different fights (the crouch-vs-punch effect) |
 | 2 | **Headless social sim** — events, perception, appraisal, memory, retrieval, reflection, relationships, gossip, encounters, apologies; text log output; LLM seams ✅ *first pass done* | Bob/Jin/Martha-style drama emerges unscripted |
+| 2b | **Lies & manipulation, gifts, mediation** — fabricated gossip with provenance the player can trace; player social actions | Pot-stirring is discoverable and counterable |
 | 3 | **3v3 combat** + team behaviour + combat → memory events | Relationships change fights |
-| 4 | **Close the loop** — home week → fight → home week | The core loop is fun in text |
+| 4 | **Close the loop** — home week → fight → home week; match types & stakes; manager perception (multi-axis); departures | The core loop is fun in text |
 | 5 | **2.5D client** — arena rendering, house view, inspectors | Readability; does 2.5D look good enough? |
 | 6 | **In-fight interventions** — towel, crowd actions as retrieval cues | Player agency during auto-battles |
 | 7 | **LLM chat** — grounded in memory, intents → events | "Get a feel" for the team |

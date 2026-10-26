@@ -6,7 +6,7 @@ export const SLOTS_PER_DAY = 48;
 export const TICKS_PER_DAY = SLOTS_PER_DAY;
 export const TICKS_PER_WEEK = TICKS_PER_DAY * 7;
 
-/** Slot at which nightly consolidation (reflection, threads, drift) runs: 02:00. */
+/** Slot at which nightly consolidation (reflection, beliefs, threads) runs: 02:00. */
 export const NIGHTLY_SLOT = 4;
 
 /** Lights out 22:00 → wake 07:00. */

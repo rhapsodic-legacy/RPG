@@ -1,10 +1,9 @@
-import { addScaled, scaleEmotions, EMOTIONS } from '../emotion';
+import { EMOTIONS } from '../emotion';
 import type { CognitionProviders } from '../cognition/providers';
 import { ruleBasedProviders } from '../cognition/rules';
 import { acceptsApology, interactionCooldownKey } from '../cognition/rules/interaction';
-import { pruneMemories, retrieve } from '../mind/memory';
+import { pruneMemories } from '../mind/memory';
 import { computeFocus, computeThreads } from '../mind/threads';
-import type { TemperamentAxis } from '../temperament';
 import {
   dayOf,
   isSleepTime,
@@ -15,9 +14,8 @@ import {
   TICKS_PER_WEEK,
   type Tick,
 } from '../time';
-import type { Emotion } from '../emotion';
 import type { FighterId, SimState, UtteranceInterpretation, WorldEvent } from '../types';
-import { clamp01, clampSigned, fnv1a, unit } from '../util/math';
+import { clamp01, fnv1a, unit } from '../util/math';
 import {
   applyRelDelta,
   attachment,
@@ -41,10 +39,9 @@ export type EventDraft = Omit<WorldEvent, 'id' | 'tick' | 'witnesses' | 'gloss'>
 
 const ARGUMENT_PRESSURE = 0.6;
 const BRAWL_PRESSURE = 0.95;
-const BRAWL_COOLDOWN = 3 * TICKS_PER_DAY;
-/** Cooling-off period after an accepted apology. */
-const TRUCE_TICKS = 2 * TICKS_PER_DAY;
 const MIN_BELIEF_CONFIDENCE = 0.3;
+const MOOD_SETTLE_AWAKE = 0.97;
+const MOOD_SETTLE_ASLEEP = 0.95;
 const REFLECTION_THRESHOLD = 0.5;
 
 /**
@@ -123,9 +120,11 @@ export class Simulation {
       emitted.push(...nightly);
     }
 
+    // Momentary feelings settle. Only this transient `mood` settles: relationships,
+    // memories, beliefs and temperament never decay or heal on their own.
     for (const f of fighterList(s)) {
-      const asleep = f.state.activity === 'sleep';
-      for (const e of EMOTIONS) f.state.mood[e] *= asleep ? 0.95 : 0.97;
+      const settle = f.state.activity === 'sleep' ? MOOD_SETTLE_ASLEEP : MOOD_SETTLE_AWAKE;
+      for (const e of EMOTIONS) f.state.mood[e] *= settle;
     }
     s.tick++;
     return emitted;
@@ -172,15 +171,8 @@ export class Simulation {
         }
         break;
       case 'apology':
-        if (e.apology?.accepted && a && b) {
-          // Clearing the air buys a cooling-off period and settles the guilt.
-          const pair = pairKey(a, b);
-          touchCooldown(s, `argument:${pair}`);
-          s.cooldowns[`argument:${pair}`] = s.tick + TRUCE_TICKS;
-          s.cooldowns[`brawl:${pair}`] = s.tick + TRUCE_TICKS;
-          s.cooldowns[`apology_ok:${a}>${b}`] = s.tick;
-          getFighter(s, b).state.mood.anger *= 0.5;
-        }
+        // An accepted apology settles the apologiser's guilt up to now.
+        if (e.apology?.accepted && a && b) s.cooldowns[`apology_ok:${a}>${b}`] = s.tick;
         break;
       case 'brawl':
         for (const id of [...e.actors, ...e.targets]) {
@@ -288,6 +280,13 @@ export class Simulation {
       for (const o of occupants(s, f.state.location)) {
         if (o.def.id !== f.def.id) f.state.lastSeen[o.def.id] = s.tick;
       }
+    }
+
+    // An encounter ends when the pair are no longer in the same room.
+    for (const key of Object.keys(s.cooldowns)) {
+      if (!key.startsWith('confront:')) continue;
+      const [a, b] = key.slice('confront:'.length).split('|') as [FighterId, FighterId];
+      if (getFighter(s, a).state.location !== getFighter(s, b).state.location) delete s.cooldowns[key];
     }
   }
 
@@ -401,13 +400,14 @@ export class Simulation {
           const pa = this.pressure(a, b);
           const pb = this.pressure(b, a);
           const [initiator, other, p] = pa >= pb ? [a, b, pa] : [b, a, pb];
-          const pair = pairKey(a, b);
-          if (p >= BRAWL_PRESSURE && cooldownReady(s, `brawl:${pair}`, BRAWL_COOLDOWN)) {
-            touchCooldown(s, `brawl:${pair}`);
-            touchCooldown(s, `argument:${pair}`);
+          // One confrontation per encounter: the pair must part ways before the next.
+          const key = `confront:${pairKey(a, b)}`;
+          if (s.cooldowns[key] !== undefined) continue;
+          if (p >= BRAWL_PRESSURE) {
+            touchCooldown(s, key);
             emit({ type: 'brawl', actors: [initiator], targets: [other], location: room.id, intensity: 0.9, public: true });
-          } else if (p >= ARGUMENT_PRESSURE && cooldownReady(s, `argument:${pair}`, 12)) {
-            touchCooldown(s, `argument:${pair}`);
+          } else if (p >= ARGUMENT_PRESSURE) {
+            touchCooldown(s, key);
             emit({ type: 'argument', actors: [initiator], targets: [other], location: room.id, intensity: 0.6, public: true });
           }
         }
@@ -459,11 +459,7 @@ export class Simulation {
     for (const id of fighterIds(s)) {
       this.reflect(id, emit);
       this.considerBreakup(id, emit);
-      this.fadeAbsence(id);
-      this.heal(id);
       this.deriveLabels(id);
-      this.ruminate(id);
-      this.drift(id);
       pruneMemories(getFighter(s, id), s.tick);
     }
   }
@@ -471,10 +467,6 @@ export class Simulation {
   private reflect(id: FighterId, emit: (d: EventDraft) => WorldEvent): void {
     const s = this.state;
     const f = getFighter(s, id);
-    // Old beliefs fade without fresh evidence.
-    for (const b of f.beliefs) if (s.tick - b.updatedAt > TICKS_PER_WEEK) b.confidence -= 0.03;
-    f.beliefs = f.beliefs.filter((b) => b.confidence >= 0.2);
-
     if (f.state.importanceSinceReflection < REFLECTION_THRESHOLD) return;
     f.state.importanceSinceReflection = 0;
 
@@ -553,33 +545,6 @@ export class Simulation {
     });
   }
 
-  /** Out of sight, out of mind — slower for the loyal. */
-  private fadeAbsence(id: FighterId): void {
-    const s = this.state;
-    const f = getFighter(s, id);
-    const loyalty = unit(f.temperament.loyalty);
-    for (const [other, r] of Object.entries(f.relationships)) {
-      const seen = f.state.lastSeen[other];
-      if (seen !== undefined && s.tick - seen < TICKS_PER_DAY) continue;
-      r.attraction = clamp01(r.attraction - 0.03 * (1 - 0.5 * loyalty));
-    }
-  }
-
-  /** Time heals — faster for the disciplined and even-tempered, slower for big egos. */
-  private heal(id: FighterId): void {
-    const s = this.state;
-    const f = getFighter(s, id);
-    const t = f.temperament;
-    const rate = 0.02 * (0.5 + unit(t.discipline) + (1 - unit(t.volatility)) - unit(t.ego));
-    for (const [other, r] of Object.entries(f.relationships)) {
-      if (r.resentment > 0) r.resentment = clamp01(r.resentment - Math.max(0.005, rate));
-      // Lingering feelings for an ex fade once they've moved on.
-      if (r.labels.includes('ex') && partnerOf(s, other) !== null) {
-        r.attraction = clamp01(r.attraction - 0.015 * (1 - 0.5 * unit(t.loyalty)));
-      }
-    }
-  }
-
   private deriveLabels(id: FighterId): void {
     const s = this.state;
     const f = getFighter(s, id);
@@ -590,41 +555,6 @@ export class Simulation {
       setLabel(s, id, other, 'enemy', r.resentment >= 0.6);
       setLabel(s, id, other, 'rival', r.resentment >= 0.35 && r.resentment < 0.6 && r.respect >= 0.2);
       setLabel(s, id, other, 'crush', r.attraction >= 0.5 && !r.labels.includes('dating'));
-    }
-  }
-
-  /** Unresolved threads keep pulling painful memories back up. */
-  private ruminate(id: FighterId): void {
-    const s = this.state;
-    const f = getFighter(s, id);
-    for (const t of f.threads) {
-      const recalled = retrieve(f, { entities: t.about }, this.providers.relevance, s.tick, 2, { touch: true });
-      for (const r of recalled) addScaled(f.state.mood, scaleEmotions(r.memory.emotions, 0.25 * t.weight), 1);
-    }
-  }
-
-  /** Defining memories slowly reshape temperament. */
-  private drift(id: FighterId): void {
-    const s = this.state;
-    const f = getFighter(s, id);
-    const DRIFT: Partial<Record<Emotion, Partial<Record<TemperamentAxis, number>>>> = {
-      anger: { volatility: 0.02, aggression: 0.01 },
-      fear: { courage: -0.02 },
-      shame: { ego: -0.01, courage: -0.01 },
-      jealousy: { loyalty: -0.01, volatility: 0.01 },
-      sadness: { sociability: -0.01 },
-      joy: { sociability: 0.01 },
-      affection: { loyalty: 0.01 },
-      gratitude: { loyalty: 0.01 },
-    };
-    for (const m of f.memories) {
-      if (!m.core || s.tick - m.createdAt >= TICKS_PER_DAY) continue;
-      let dominant: Emotion = 'joy';
-      for (const e of EMOTIONS) if (m.emotions[e] > m.emotions[dominant]) dominant = e;
-      for (const [axis, d] of Object.entries(DRIFT[dominant] ?? {})) {
-        const a = axis as TemperamentAxis;
-        f.temperament[a] = clampSigned(f.temperament[a] + d!);
-      }
     }
   }
 }

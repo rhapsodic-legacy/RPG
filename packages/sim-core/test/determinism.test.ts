@@ -28,3 +28,25 @@ describe('determinism', () => {
     expect(powi(2, 0)).toBe(1);
   });
 });
+
+describe('no invisible hand', () => {
+  it('relationships and temperament do not change without events between the people involved', async () => {
+    const { fighter, miniScenario } = await import('./helpers');
+    const sim = new Simulation(
+      miniScenario([fighter('bob', { ego: 0.6 }), fighter('jin')], {
+        relationships: [{ from: 'bob', to: 'jin', resentment: 0.5, attraction: 0.6, affection: -0.2, labels: ['ex'] }],
+      }),
+    );
+    const before = structuredClone(sim.state.fighters.bob!);
+    // Jin is laid up for the whole run, so the two never meet.
+    sim.step([{ kind: 'injure', fighter: 'jin', days: 30, cause: 'test' }]);
+    sim.runDays(10);
+    const after = sim.state.fighters.bob!;
+    // Labels like "crush" are derived from the values, so compare the values themselves.
+    const { labels: _a, ...afterValues } = after.relationships.jin!;
+    const { labels: _b, ...beforeValues } = before.relationships.jin!;
+    expect(afterValues).toEqual(beforeValues);
+    expect(after.relationships.jin!.labels).toContain('ex');
+    expect(after.temperament).toEqual(before.temperament);
+  });
+});

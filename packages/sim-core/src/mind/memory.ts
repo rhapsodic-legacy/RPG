@@ -10,7 +10,7 @@ export const CORE_IMPORTANCE = 0.7;
 export const MIN_STORED_IMPORTANCE = 0.08;
 export const MEMORY_CAPACITY = 300;
 
-/** Per-tick recency decay: ~0.79 per day, ~0.19 per week. */
+/** Retrieval recency weighting (what comes to mind first), not forgetting: ~0.79 per day. */
 export const RECENCY_DECAY = 0.995;
 
 export const RETRIEVAL_WEIGHTS = {

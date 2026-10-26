@@ -1,6 +1,5 @@
 // Open threads, preoccupation, focus and fight readiness.
 
-import { TICKS_PER_WEEK } from '../time';
 import type { FighterId, SimState, Thread } from '../types';
 import { clamp01 } from '../util/math';
 import { bond, fighterIds, getFighter, isInjured, isShaken, nameOf, peekRel } from '../world';
@@ -42,11 +41,10 @@ export function computeThreads(state: SimState, id: FighterId): Thread[] {
     }
   }
 
-  // Guilt: memories from the last two weeks that left me ashamed, about someone.
-  const since = state.tick - 2 * TICKS_PER_WEEK;
+  // Guilt: memories that left me ashamed about someone, until an apology settles them.
   const guilt = new Map<FighterId, number>();
   for (const m of f.memories) {
-    if (m.createdAt < since || m.emotions.shame < 0.15) continue;
+    if (m.emotions.shame < 0.15) continue;
     for (const tag of m.tags) {
       if (!tag.startsWith('guilt:')) continue;
       const e = tag.slice('guilt:'.length);
