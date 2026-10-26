@@ -43,6 +43,22 @@ most common way to get work rejected.
 7. **Fighters must be distinct** (The Bouncer): different movement, stances, striking, not
    just stats. Identical fighters should be near impossible once styles/progression exist.
 
+8. **Stop fixing things the owner hasn't flagged.** Once the app exists, the owner wants
+   to play it and tweak behaviour themselves ("instead of you smashing issues that may
+   not be an issue"). Fix what they report; surface oddities as notes, don't retune them.
+   The Bob/Jin/Martha triangle and Suzie Q are just two of countless possible stories,
+   so don't tune the sim to one scenario.
+9. **It's a phone app played once a day.** The player logs in, does a title fight, reads
+   journals and emails, and intervenes. Because the player intervenes constantly, the
+   no-intervention CLI runs overstate how fast things blow up. **Real-time pacing: one human
+   day is one sim day** (48 ticks of 30 min, one tick every 30 real minutes). A dev speed
+   multiplier is fine for testing.
+10. **The feel the owner is aiming for:** "The fighting part is the high octane. The house
+    part is the highly entertaining part… watching my fighters take down a stronger team
+    is something I'll never forget. Watching all the women email me because Kai was spying
+    on them while they bathed in the pool… I'm still laughing. And I told Kai to keep doing
+    it." It should feel unlike any other hero collector.
+
 ## 2. Workflow
 
 - Branch: `claude/eager-cray-xou2wj`. Commit with clear messages; push with
@@ -183,7 +199,59 @@ Key mechanics in one line each:
   motion; mirrored trades between similar fighters; Ox overpowered; "didn't ask for that"
   uses resentment as a proxy for a claim; no mid-fight plan changes.
 
-## 6. Next steps (owner agreed to all, in this order)
+## 6. NOW: the playable app (owner's latest request, top priority)
+
+The owner wants to run it on their computer or in the cloud, log in, set up fights, watch
+the house and read the drama. Then they'll start tweaking. The visuals need to look decent,
+not like stick figures. Everything below is a plan: none of it is built yet.
+
+**Scope for the first playable build:**
+- **Server:** a new `packages/server`. Node with `node:http` or a small framework.
+  - Accounts: username and password hashed with scrypt, session cookie.
+  - One world per player, persisted as JSON: the scenario seed plus the input journal is
+    enough to replay, but a snapshot is faster.
+  - A real-time clock advances the world to "now" on each request and on an interval. Catch
+    up after downtime. Dev speed multiplier via env/admin.
+  - The API exposes house state, fighters, journals, inbox and conversations (turns), and
+    takes player inputs: assign bedroom, recruit, schedule fight, build room, later
+    chat/lies/deals.
+  - Fight results come back with traces for replay.
+- **Client:** a new `packages/app` (Vite + TypeScript). three.js 0.186 and vite 8.3.5 are
+  installable from the registry.
+  - The house is a rendered 2.5D/isometric Sims-like view: rooms with furniture (beds, TV
+    lounge, billiards, kitchen, gym, infirmary, later a pool). Fighters walk between rooms
+    and show speech bubbles from live conversations (one tick lasts 30 real minutes, so
+    bubbles can play out in real time). Click a fighter to see their card: looks, record,
+    mood as observed, journal.
+  - Characters must look decent. Suggested: low-poly 3D humanoids built procedurally from
+    `def.looks` (hair shape and colour, clothing style, skin) and `def.body` (height,
+    mass), with lighting and shadows. Alternatively, well-shaded layered 2D. No external
+    art assets exist.
+  - Screens: login · house · roster/fighter cards · journals (lines link to recorded
+    conversations) · inbox (emails to the manager) · fights (pick 3, a leader and an
+    opponent team; watch the replay rendered in 2.5D with the same characters; the "title
+    fight" is the daily highlight) · recruit board · build/assign rooms.
+  - The player must never see hidden truth such as temperament (see `SUZIE_Q`'s comment:
+    "the player never sees this — only what she does").
+  - Fight replay: `FightResult.trace` (`TraceSample`: x, z, stance, action, move, t, hp,
+    target, mode, out) plus `events`. See `sim-headless/src/export-fights.ts` and
+    `replay/viewer.template.html` for the existing 2D viewer to port.
+- **New-game state:** a basic home base (a few rooms) and a random starting roster of
+  **5 fighters** from `generateFighter(seed)`. There's no roster cap. More fighters need
+  housing and feeding, they squabble, and they want fights to earn rep. Benched fighters
+  eventually get up to no good (annoying things, leaving). The home base can be built out
+  a lot (room catalog; Kai and the pool is the canonical joke).
+- Deploy notes for cloud and local in the README: `npm run app` serves both.
+
+**Later (owner, "down the road"):** trading fighters with other teams, in PvE and PvP.
+Also money and rep economy, departures, and the earlier list below.
+
+**Latest sim change:** throwing the first punch now needs nerve and is restrained by
+attraction and fear (`strikesFirst`), so Kai never brawls with Suzie. Noted but left alone
+for the owner to judge: a jealous Kai still swings at Bob, who is 36 kg heavier and dating
+Suzie.
+
+## 6b. Earlier next steps (owner agreed to all, after the app)
 
 1. ✅ **Conversations that take time + personal daily rhythms** (first pass done). Follow-ups:
    group conversations (3+), a "dialogue day" save/load beyond 3 days, better reply logic.

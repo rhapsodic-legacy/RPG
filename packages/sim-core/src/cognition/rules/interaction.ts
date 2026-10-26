@@ -116,11 +116,16 @@ export class RuleInteractionPolicy implements InteractionPolicy {
     // A hurt body can still shout, but it can't throw punches.
     if (isInjured(f, state.tick)) return false;
     const t = f.temperament;
+    const r = peekRel(state, initiator, target);
     const rage =
       f.state.mood.anger * (0.5 + unit(t.volatility)) +
-      peekRel(state, initiator, target).resentment * unit(t.aggression) -
+      r.resentment * unit(t.aggression) -
       0.5 * unit(t.discipline) -
-      0.3 * unit(t.pragmatism);
+      0.3 * unit(t.pragmatism) -
+      // Throwing the first punch takes nerve, and you don't hit someone you want or fear.
+      0.6 * (1 - unit(t.courage)) -
+      r.attraction -
+      r.fear;
     return rage > 0.8;
   }
 
