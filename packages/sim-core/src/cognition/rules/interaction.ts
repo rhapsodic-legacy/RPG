@@ -1,11 +1,13 @@
 // Rule-based social behaviour: whom to engage, and how, when sharing a room.
 
 import { GOSSIP_WORTHY, recencyOf } from '../../mind/memory';
+import { ambition, desire } from '../../home/attraction';
+import type { Temperament } from '../../temperament';
 import { unaddressedGrievance } from '../../sim/perception';
 import { engagement, WILLING_TO_TALK } from '../../sim/conversation';
 import type { FighterId, SimState } from '../../types';
 import { unit } from '../../util/math';
-import { bond, getFighter, partnerOf, peekRel } from '../../world';
+import { bond, getFighter, isInjured, partnerOf, peekRel } from '../../world';
 import type { ConfrontationResponse, InteractionChoice, InteractionPolicy } from '../providers';
 
 /** Minimum utility for a fighter to bother engaging at all. */
@@ -30,7 +32,14 @@ export function recentlyRebuffed(state: SimState, actor: FighterId, other: Fight
   for (const m of getFighter(state, actor).memories) {
     if (m.tags.includes('brushed_off') && m.entities.includes(other)) sum += recencyOf(m, state.tick);
   }
-  return 0.5 * sum;
+  // Some take the hint; some never do.
+  const t = getFighter(state, actor).temperament;
+  return 0.5 * sum * (0.3 + 0.4 * unit(t.curiosity) + 0.3 * unit(t.pragmatism));
+}
+
+/** Not a one-partner person. */
+export function roams(t: Temperament): boolean {
+  return t.loyalty <= -0.4 && t.romance >= 0.3;
 }
 
 /**
@@ -104,6 +113,8 @@ export class RuleInteractionPolicy implements InteractionPolicy {
 
   strikesFirst(state: SimState, initiator: FighterId, target: FighterId): boolean {
     const f = getFighter(state, initiator);
+    // A hurt body can still shout, but it can't throw punches.
+    if (isInjured(f, state.tick)) return false;
     const t = f.temperament;
     const rage =
       f.state.mood.anger * (0.5 + unit(t.volatility)) +
@@ -126,7 +137,7 @@ export class RuleInteractionPolicy implements InteractionPolicy {
       0.3 * unit(t.discipline) -
       0.3 * unit(t.pragmatism) -
       r.fear * (1 - unit(t.courage));
-    if (heat > 1.1 && unit(t.courage) > 0.4) return 'fought_back';
+    if (heat > 1.1 && unit(t.courage) > 0.4 && !isInjured(f, state.tick) && !isInjured(getFighter(state, initiator), state.tick)) return 'fought_back';
     if (heat > 0.45) return 'argued_back';
     return 'walked_away';
   }
@@ -134,7 +145,7 @@ export class RuleInteractionPolicy implements InteractionPolicy {
   acceptsAdvance(state: SimState, target: FighterId, actor: FighterId): boolean {
     const me = getFighter(state, target);
     const toThem = peekRel(state, target, actor).attraction;
-    if (toThem < 0.5 || partnerOf(state, target)) return false;
+    if (toThem < 0.5 || (partnerOf(state, target) && !roams(me.temperament))) return false;
     // Only if they're the one I want most right now.
     for (const [other, r] of Object.entries(me.relationships)) {
       if (other !== actor && (state.fighters[other] || state.outsiders[other]) && r.attraction > toThem + 0.05) return false;
@@ -195,19 +206,38 @@ export class RuleInteractionPolicy implements InteractionPolicy {
         );
       }
 
-      if (r.attraction > 0.3 && myPartner !== other) {
+      // Showing off for someone you fancy — the proud and the hungry most of all.
+      if (r.attraction >= 0.35 && myPartner !== other) {
+        consider({
+          kind: 'show_off',
+          target: other,
+          utility: r.attraction * desire(me) * (0.4 + 0.8 * unit(t.ego)) + 0.3 * ambition(me) * r.attraction - 0.1 - 0.5 * recentlyRebuffed(state, actor, other),
+        });
+      }
+
+      if ((r.attraction > 0.3 || (r.attraction > 0.15 && t.loyalty < -0.3)) && myPartner !== other) {
         let restraint = 0;
         if (myPartner) restraint += 0.2 + 0.4 * unit(t.loyalty);
         if (theirPartner) restraint += 0.1 + 0.4 * unit(t.loyalty) * Math.max(0, peekRel(state, actor, theirPartner).affection);
         consider(
-          { kind: 'flirt', target: other, utility: r.attraction * 0.9 * (0.5 + 0.5 * unit(t.romance)) - restraint - recentlyRebuffed(state, actor, other) },
+          {
+            kind: 'flirt',
+            target: other,
+            utility:
+              r.attraction * (0.3 + desire(me)) * (0.6 + 0.6 * unit(t.romance)) +
+              // Some flirt for the attention as much as the person.
+              (1 - me.state.needs.esteem) * unit(t.ego) * (1 - unit(t.loyalty)) * 0.5 -
+              restraint -
+              recentlyRebuffed(state, actor, other),
+          },
           6,
         );
       }
 
       if (
-        !myPartner &&
-        !theirPartner &&
+        (!myPartner || roams(t)) &&
+        (!theirPartner || roams(getFighter(state, other).temperament)) &&
+        !peekRel(state, actor, other).labels.includes('dating') &&
         r.attraction >= 0.55 &&
         r.familiarity >= 0.3
       ) {

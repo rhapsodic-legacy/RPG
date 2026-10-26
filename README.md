@@ -31,6 +31,8 @@ npm run sim -- --verbose          # every event, including chats and meals
 npm run sim -- --journal martha --inbox   # read a journal and the manager's inbox
 npm run sim -- --days 7 --rhythm          # daily rhythms: where everyone spends time, who talks to whom
 npm run sim -- --days 6 --talks martha    # journal lines with the recorded conversations behind them
+npm run sim -- --scenario suzie --days 7 --journal suzie --inbox   # a knockout recruit moves in
+npm run sim -- --scenario suzie --room suzie=bed_kai@3             # manager reassigns her room on day 3
 
 npm run fight -- --a brick --b shell --log        # sparring gym, play-by-play
 npm run fight -- --a duke --b shell --rounds 4    # watch learning across fights

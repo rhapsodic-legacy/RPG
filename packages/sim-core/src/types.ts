@@ -54,6 +54,39 @@ export interface Body {
   massKg: number;
 }
 
+export type Gender = 'woman' | 'man' | 'nonbinary';
+export type Hair = 'curly' | 'wavy' | 'straight' | 'short' | 'shaved';
+export type HairColor = 'black' | 'brown' | 'blonde' | 'red' | 'grey';
+export type Style = 'flashy' | 'plain' | 'rugged' | 'elegant' | 'sporty';
+
+/** How someone looks. */
+export interface Looks {
+  /** General striking-ness, 0..1. */
+  attractiveness: number;
+  hair: Hair;
+  hairColor: HairColor;
+  style: Style;
+}
+
+/** What someone is drawn to. Weights 0..1. */
+export interface Preferences {
+  /** How much looks matter at all. */
+  looks: number;
+  hair?: Hair[];
+  hairColor?: HairColor[];
+  style?: Style[];
+  /** Builds they like, by mass range in kg. */
+  build?: [number, number];
+  /** Drawn to swagger and nerve. */
+  confidence: number;
+  /** Drawn to winners. */
+  status: number;
+  /** Drawn to warmth and loyalty. */
+  kindness: number;
+  /** Drawn to people who spend time with them — and cool on those who don't. */
+  attention: number;
+}
+
 export interface FighterDef {
   id: FighterId;
   name: string;
@@ -63,6 +96,11 @@ export interface FighterDef {
   bedroomId: RoomId;
   /** If absent, derived from temperament. */
   routine?: Routine;
+  gender?: Gender;
+  /** Genders this person can be attracted to. */
+  attractedTo?: Gender[];
+  looks?: Looks;
+  prefers?: Preferences;
 }
 
 /** Need satisfaction, 0 = desperate, 1 = fully satisfied. */
@@ -73,6 +111,10 @@ export interface Needs {
   comfort: number;
   /** Enjoyment: topped up by pastimes and good company. */
   fun: number;
+  /** Romantic and sexual fulfilment: desire builds like hunger, faster for the romantic. */
+  intimacy: number;
+  /** Recognition: wins, praise, admiration. The hungrier the ego, the faster it empties. */
+  esteem: number;
 }
 
 export type Activity = 'sleep' | 'eat' | 'cook' | 'train' | 'socialize' | 'relax' | 'recover' | 'visit' | 'talk' | 'pastime';
@@ -283,7 +325,10 @@ export type EventType =
   | 'match_result'
   | 'knockout'
   | 'rescue'
-  | 'shared_pastime';
+  | 'shared_pastime'
+  | 'show_off'
+  | 'first_impression'
+  | 'refused_fight';
 
 export interface UtteranceIntent {
   kind: 'encourage' | 'praise' | 'criticize' | 'command' | 'reassure' | 'question';

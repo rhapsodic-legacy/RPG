@@ -61,6 +61,8 @@ export interface Appraisal {
   /** Relationship changes caused by this appraisal (already scaled). */
   deltas: RelDelta[];
   tags: string[];
+  /** Needs this experience fed (admiration feeds esteem; romance feeds intimacy). */
+  needs?: Partial<Record<'esteem' | 'intimacy' | 'social', number>>;
 }
 
 /** Turns an objective event into a subjective experience. */
@@ -105,7 +107,8 @@ export type InteractionKind =
   | 'gossip'
   | 'comfort'
   | 'apologize'
-  | 'confront';
+  | 'confront'
+  | 'show_off';
 
 export interface InteractionChoice {
   kind: InteractionKind;

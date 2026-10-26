@@ -1,4 +1,4 @@
-import type { FighterId, Intent, RoomId, ScheduledFight, UtteranceInterpretation } from '../types';
+import type { FighterDef, FighterId, Intent, RoomId, ScheduledFight, UtteranceInterpretation } from '../types';
 import type { Tick } from '../time';
 
 /**
@@ -28,7 +28,11 @@ export type Input =
   | { kind: 'schedule_fight'; fight: ScheduledFight }
   /** The player (or rival manager) picks who leads a side. */
   | { kind: 'set_leader'; fightId: string; side: 0 | 1; leader: FighterId | null }
-  | { kind: 'set_cooks'; kitchen: RoomId; cooks: FighterId[] };
+  | { kind: 'set_cooks'; kitchen: RoomId; cooks: FighterId[] }
+  /** A new fighter joins the house. */
+  | { kind: 'recruit'; fighter: FighterDef }
+  /** Who sleeps where (rooms can be shared). */
+  | { kind: 'assign_bedroom'; fighter: FighterId; room: RoomId };
 
 export interface JournalEntry {
   tick: Tick;

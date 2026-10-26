@@ -445,6 +445,20 @@ their history. So the hooks are built in from day one, not retrofitted:
   people choose to spend time (a bookworm starts reading in the billiards room where their
   crush plays).
 
+### 5b. Attraction and the hierarchy of needs (implemented, first pass)
+
+- Everyone has looks (attractiveness, hair, colour, style) and their own preferences: how
+  much looks matter, their type, and how much they value confidence, kindness, status (wins
+  on the record) and attention (time spent with them). Jin's eye goes to curly hair; Martha
+  falls for men who spend time with her. Appeal is directional and personal.
+- Needs follow Maslow: food and rest first; then belonging (talk) and intimacy; then esteem.
+  Desire and ambition only steer behaviour once the needs below are met — a hungry fighter
+  doesn't flirt, and Bob's ego sends him to the gym before the bedroom.
+- Showing off and flirting feed the target's esteem; onlookers feel jealous or envious; a
+  rejection after flirting reads as being teased. Fighters refuse scheduled fights they're
+  badly outclassed in. None of this is scripted per character — the Suzie Q scenario only
+  defines who she is and when she arrives.
+
 ## 6. Arena (2.5D Brawler)
 
 ### 6.1 Geometry-driven combat

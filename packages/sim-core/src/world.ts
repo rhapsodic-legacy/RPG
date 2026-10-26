@@ -1,6 +1,5 @@
 // Read/write helpers over SimState shared by every subsystem.
 
-import { compatibility } from './temperament';
 import type {
   EntityId,
   Fighter,
@@ -13,6 +12,7 @@ import type {
   SimState,
 } from './types';
 import { clamp01, clampSigned } from './util/math';
+import { appeal } from './home/attraction';
 import { isSleepTimeFor } from './home/routine';
 import type { Tick } from './time';
 
@@ -133,13 +133,11 @@ export function bond(state: SimState, from: FighterId, to: FighterId): number {
   return Math.max(r.affection, attachment(state, from, to));
 }
 
+/** How far `a` could fall for `b`. Scenario overrides win; otherwise looks, type and character. */
 export function chemistry(state: SimState, a: FighterId, b: FighterId): number {
   const override = state.chemistry[pairKey(a, b)];
   if (override !== undefined) return override;
-  const ta = getFighter(state, a).temperament;
-  const tb = getFighter(state, b).temperament;
-  if (ta.romance < -0.5 || tb.romance < -0.5) return 0;
-  return clamp01(0.2 + 0.2 * compatibility(ta, tb));
+  return appeal(state, a, b);
 }
 
 // ---------------------------------------------------------------- status

@@ -38,6 +38,10 @@ export function integrate(
   const appraisal = providers.appraiser.appraise({ state, perceiver, event, source, confidence, teller });
 
   for (const d of appraisal.deltas) applyRelDelta(state, perceiver, d);
+  for (const [need, v] of Object.entries(appraisal.needs ?? {})) {
+    const n = f.state.needs as unknown as Record<string, number>;
+    n[need] = clamp01((n[need] ?? 0) + (v as number));
+  }
   feel(f.state.mood, appraisal.emotions, 0.6);
   // Anything that made me resent someone is a grievance I may want to have out with them.
   const tags = [...appraisal.tags];

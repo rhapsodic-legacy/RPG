@@ -66,6 +66,8 @@ npm test / npm run typecheck
 npm run sim [-- --days 21 --kitchens 2 --compare --verbose --journal martha --inbox --inspect bob]
 npm run sim -- --days 7 --rhythm          # where everyone spends their time, who talks to whom
 npm run sim -- --days 6 --talks martha    # journal lines with the recorded conversations behind them
+npm run sim -- --scenario suzie --days 7 --journal suzie --journal kai --inbox   # Suzie Q moves in
+npm run sim -- --scenario suzie --days 7 --room suzie=bed_kai@3                   # manager moves her into Kai's room on day 3
 npm run fight [-- --a brick --b shell --log --rounds 4 --scenario love-triangle --days 14]
 npm run match [-- --leader martha|jin|none]     # 3v3 Night of Rivals end-to-end
 npm run replay                                   # builds arena-replay.html (2.5D viewer)
@@ -141,6 +143,17 @@ Key mechanics in one line each:
 - **Routines**: per-fighter bedtimes, peak training hours, pastimes in rooms with amenities
   (books/music go anywhere), shared pastimes and sparring quietly build closeness; room
   choice is pulled by who's expected there (the bookworm reads where their crush plays pool).
+- **Attraction & Maslow** (`home/attraction.ts`): `appeal(from,to)` is directional — looks
+  (attractiveness + "my type": hair, colour, style, build) weighted by how much looks matter
+  to them, plus character (confidence, kindness, status = wins on record, attention =
+  familiarity). It's the ceiling attraction grows toward; first sight gives a spark
+  (`first_impression`, "Met X today. Wow."). Needs gain `intimacy` and `esteem`; `desire`
+  and `ambition` only drive behaviour once the body (food, rest) is settled, and ambition
+  once belonging is. Ego-heavy Bob trains for his streak; romantic Jin chases.
+  Showing off / flirting feed the target's esteem; witnesses feel jealousy (triads) or envy.
+  Rejected advances after flirting read as being teased. Fighters refuse scheduled fights
+  where they're badly outclassed (`refusesFight` → 'outclassed', email to the manager).
+  Recruits come off the gym board via `generateFighter(seed)` (deterministic).
 - **Loop**: scheduled fights run inside `step()`; record + speech/rescue/knockout/
   match_result events + injuries flow into memories, journals and relationships.
 
@@ -152,6 +165,15 @@ Key mechanics in one line each:
   sparring; breakup ~day 7, Jin and Martha together; Jin ("I feel terrible about Bob") and
   Martha both apologise, Bob accepts but writes "I won't fight on a team with Jin or Martha.
   It hurts too much." Calmer than the old constant-chatter version (no brawls).
+- Suzie Q (7 days, 10 fighters + Suzie recruited day 2): Kai "Met Suzie Q today. Wow…
+  I can't stop thinking about Suzie Q", asks her out, gets "No", calls her a tease; Suzie
+  writes "Bob, Jin and Kai were all over me today. I love it here." and dates Bob; Martha
+  "Everyone's falling over themselves for Suzie Q. I can't stand it." and brawls with her;
+  Jin and Bob feud; Suzie emails she won't get in with Tank; Bob is knocked out by Tank.
+  Moving Suzie into Kai's room (`--room suzie=bed_kai@3`) gets "Get Kai out of my room…
+  or I don't know how much longer I can stay here" and, by day 5, blows.
+  Weak spots: enemies share the single infirmary and keep arguing; lots of "caught in the
+  middle" emails; no departures yet, so threats to leave are only words.
 - Template dialogue is wooden and repetitive by design: the Conversationalist seam is where
   an LLM should write the words.
 - Night of Rivals: Bob dictates, claims Sting; Sting taunts; Jin asks to lead by email;
@@ -180,7 +202,9 @@ Key mechanics in one line each:
    their own risk.
 3. **Fighter progression and distinct styles**: stats, fighting styles (traditional karate,
    brawler…), unlockable moves, distinct movement/stances/strike animations (The Bouncer).
-4. Manager perception (multi-axis trust/affection/respect/fear from what fighters see the
+4. Player levers for the Suzie situation: conditional deals ("lead only if you keep your
+   room to yourself"), lies (traceable), talking via the Conversationalist, gifts.
+   Manager perception (multi-axis trust/affection/respect/fear from what fighters see the
    manager do), match types & stakes, permanent departures, traceable lies.
 5. Rendered house view (Sims-inspired) in the replay viewer's style; recorded days.
 

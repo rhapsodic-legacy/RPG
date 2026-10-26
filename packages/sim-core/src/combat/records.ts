@@ -65,7 +65,7 @@ export function perceivedEdge(state: SimState, me: FighterId, opponent: FighterI
   else {
     // Nothing to go on but the eye test: size matters.
     const theirs = getFighter(state, opponent).def.body.massKg;
-    edge = (0.8 * (myBody.massKg - theirs)) / (myBody.massKg + theirs);
+    edge = (1.6 * (myBody.massKg - theirs)) / (myBody.massKg + theirs);
   }
   const t = getFighter(state, judge).temperament;
   // Judging yourself: ego and nerve colour it. Judging others: less so.

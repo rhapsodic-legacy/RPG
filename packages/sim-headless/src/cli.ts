@@ -1,10 +1,13 @@
 import { parseArgs } from 'node:util';
-import { loveTriangle, loveTriangleSchedule, Simulation, type WorldEvent } from '@rpg/sim-core';
+import { loveTriangle, loveTriangleSchedule, Simulation, suzieQ, suzieQSchedule, type Input, type Scenario, type WorldEvent } from '@rpg/sim-core';
 import { inbox, inspect, journal, narrate, readinessTable, relationshipTable, replayJournal, rhythm } from './report';
 
 const { values } = parseArgs({
   options: {
     days: { type: 'string', default: '14' },
+    scenario: { type: 'string', default: 'love-triangle' },
+    // e.g. --room suzie=bed_kai@3 : on day 3, Suzie sleeps in Kai's room
+    room: { type: 'string', multiple: true, default: [] },
     kitchens: { type: 'string', default: '1' },
     verbose: { type: 'boolean', default: false },
     inspect: { type: 'string', multiple: true, default: [] },
@@ -18,9 +21,24 @@ const { values } = parseArgs({
 
 const days = Number(values.days);
 
+const SCENARIOS: Record<string, (kitchens: 1 | 2) => [Scenario, (tick: number) => Input[]]> = {
+  'love-triangle': (k) => [loveTriangle({ kitchens: k }), loveTriangleSchedule],
+  suzie: () => [suzieQ(), suzieQSchedule],
+};
+const pick = SCENARIOS[values.scenario] ?? SCENARIOS['love-triangle']!;
+
+/** Player interventions given on the command line. */
+const playerInputs = (tick: number): Input[] =>
+  values.room.flatMap((spec) => {
+    const m = /^(\w+)=(\w+)@(\d+)$/.exec(spec);
+    if (!m) return [];
+    return tick === (Number(m[3]) - 1) * 48 + 20 ? [{ kind: 'assign_bedroom' as const, fighter: m[1]!, room: m[2]! }] : [];
+  });
+
 function run(kitchens: 1 | 2): { sim: Simulation; events: WorldEvent[] } {
-  const sim = new Simulation(loveTriangle({ kitchens }));
-  const events = sim.runDays(days, loveTriangleSchedule);
+  const [scenario, schedule] = pick(kitchens);
+  const sim = new Simulation(scenario);
+  const events = sim.runDays(days, (t) => [...schedule(t), ...playerInputs(t)]);
   return { sim, events };
 }
 
@@ -39,8 +57,8 @@ function conflicts(events: WorldEvent[], type: 'argument' | 'brawl'): string {
 
 if (values.rhythm) {
   const k = values.kitchens === '2' ? 2 : 1;
-  const sim = new Simulation(loveTriangle({ kitchens: k }));
-  console.log(rhythm(sim, days, loveTriangleSchedule));
+  const [scenario, schedule] = pick(k);
+  console.log(rhythm(new Simulation(scenario), days, schedule));
 } else if (values.compare) {
   console.log(`Comparing house layouts over ${days} days (identical fighters, identical inputs):\n`);
   for (const k of [1, 2] as const) {

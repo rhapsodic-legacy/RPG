@@ -98,6 +98,12 @@ export class TemplateNarrator implements Narrator {
         const lose = m.sides[1 - m.winningSide]!;
         return `${list(win.map(n))} beat ${list(lose.map(n))} (${m.method}).`;
       }
+      case 'show_off':
+        return `${a} showed off for ${b}.`;
+      case 'first_impression':
+        return `${a} met ${b} for the first time.`;
+      case 'refused_fight':
+        return `${a} refused to fight.`;
       case 'shared_pastime':
         return `${a} and ${b} spent time together in ${loc}.`;
       case 'knockout':

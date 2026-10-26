@@ -1,12 +1,12 @@
 // Rule-based voices: what fighters write in their journals and to the manager.
 // Both are LLM seams — swap in a model that writes from the same mind context.
 
-import { teammateRefusals } from '../../mind/teams';
+import { refusesFight, teammateRefusals, worstMatchup } from '../../mind/teams';
 import { COACH_ID, type FighterId, type Memory, type SimState, type Suggestion } from '../../types';
 import { unit } from '../../util/math';
 import { headToHead, perceivedEdge } from '../../combat/records';
 import { grudge } from '../../combat/talk';
-import { getFighter, nameOf, partnerOf, peekRel, roomsOfKind } from '../../world';
+import { fighterIds, getFighter, nameOf, partnerOf, peekRel, roomsOfKind } from '../../world';
 import type { Correspondent, Diarist, DiaryDraft, MessageDraft } from '../providers';
 import { beliefText } from './narrator';
 
@@ -34,7 +34,11 @@ export class RuleDiarist implements Diarist {
       const other = [...e.actors, ...e.targets].find((p) => p !== id);
       switch (e.type) {
         case 'romance_start':
-          if (other && (e.actors.includes(id) || e.targets.includes(id))) lines.push(`${n(other)} and I are together now.`);
+          if (e.romance?.accepted === false) {
+            if (m.tags.includes('teased')) lines.push(`${n(e.targets[0]!)} is nothing but a tease.`);
+            else if (m.tags.includes('turned_down')) lines.push(`Asked ${n(e.targets[0]!)} out. No.`);
+            else if (e.targets.includes(id)) lines.push(`${n(e.actors[0]!)} asked me out. Not a chance.`);
+          } else if (other && (e.actors.includes(id) || e.targets.includes(id))) lines.push(`${n(other)} and I are together now.`);
           else if (m.emotions.jealousy > 0.3) lines.push(`${m.source === 'told' ? `${n(m.toldBy!)} told me about` : 'I saw'} ${n(e.actors[0]!)} and ${n(e.targets[0]!)}. I feel sick.`);
           break;
         case 'breakup':
@@ -75,6 +79,17 @@ export class RuleDiarist implements Diarist {
         case 'speech':
           if (e.speech?.kind === 'taunt' && e.speech.about === id) lines.push(`${n(e.actors[0]!)} ran their mouth at me before the bell.`);
           break;
+        case 'first_impression':
+          if (m.tags.includes('smitten')) lines.push(`Met ${n(e.targets[0]!)} today. Wow.`);
+          break;
+        case 'refused_fight':
+          if (e.actors[0] === id) lines.push(`I told Coach I'm not fighting. Not like that.`);
+          break;
+        case 'flirt':
+        case 'show_off':
+          if (m.tags.includes('jealous') && !e.targets.includes(id)) lines.push(`Saw ${n(e.actors[0]!)} all over ${n(e.targets[0]!)}. Unbelievable.`);
+          else if (m.tags.includes('envy')) lines.push(`Everyone's falling over themselves for ${n(e.targets[0]!)}. I can't stand it.`);
+          break;
         case 'reflection': {
           const r = e.reflection!;
           if (r.owner === id && r.predicate !== 'is_kind_to_me') {
@@ -84,6 +99,21 @@ export class RuleDiarist implements Diarist {
         }
         default:
           break;
+      }
+    }
+
+    // Lapping up the attention.
+    const admirers = [...new Set(today.filter((m) => m.tags.includes('admired')).map((m) => state.events[Number(m.eventId.slice(1))]?.actors[0]).filter((x): x is string => !!x && x !== id))];
+    if (admirers.length >= 2 && lines.length < 4) lines.push(`${namesList(admirers.map(n)).replace(/ or /, ' and ')} were all over me today. I love it here.`);
+
+    // Can't stop thinking about someone (when single).
+    if (!partnerOf(state, id) && lines.length < 4) {
+      const [crush] = Object.entries(f.relationships)
+        .filter(([o, r]) => (state.fighters[o] || state.outsiders[o]) && r.attraction >= 0.55 && !r.labels.includes('dating'))
+        .sort((a, b) => b[1].attraction - a[1].attraction);
+      if (crush) {
+        const line = `I can't stop thinking about ${n(crush[0])}.`;
+        if (!(f.diary[f.diary.length - 1]?.text ?? '').includes(line)) lines.push(line);
       }
     }
 
@@ -227,6 +257,36 @@ export class RuleCorrespondent implements Correspondent {
         subject: `${n(t.about[0]!)} and ${n(t.about[1]!)}`,
         body: `${n(t.about[0]!)} and ${n(t.about[1]!)} are at each other's throats and I'm stuck in the middle. I don't know what to do. Can you help?`,
         suggestions: [{ kind: 'talk_to', about: t.about, text: `Talk to ${n(t.about[0]!)} and ${n(t.about[1]!)}.` }],
+      });
+    }
+
+    // Sharing a room with someone I can't stand.
+    for (const other of fighterIds(state)) {
+      if (other === id || state.fighters[other]!.def.bedroomId !== f.def.bedroomId) continue;
+      const r = peekRel(state, id, other);
+      const pestered = f.memories.filter((m) => m.tags.includes('pestered') && m.entities.includes(other)).length;
+      if (r.resentment < 0.35 && pestered < 3) continue;
+      out.push({
+        topic: `roommate:${other}:${f.def.bedroomId}`,
+        about: [other],
+        subject: `Get ${n(other)} out of my room`,
+        body: `I can't share a room with ${n(other)}. ${pestered >= 3 ? `${n(other)} won't leave me alone.` : `We can't stand each other.`} Move one of us, or I don't know how much longer I can stay here.`,
+        suggestions: [{ kind: 'build_room', about: [id, other], text: `Give ${n(id)} a room of their own.` }],
+      });
+    }
+
+    // Fights coming up that I won't step into.
+    for (const fight of state.upcoming) {
+      const side = fight.sides[0].includes(id) ? 0 : fight.sides[1].includes(id) ? 1 : null;
+      if (side === null) continue;
+      if (refusesFight(state, id, fight.sides[side], fight.sides[1 - side]!) !== 'outclassed') continue;
+      const worst = worstMatchup(state, id, fight.sides[1 - side]!)!;
+      out.push({
+        topic: `refuse-fight:${fight.id}`,
+        about: [worst.opponent],
+        subject: `Count me out of ${fight.label ?? 'that fight'}`,
+        body: `I'm not getting in there with ${n(worst.opponent)}. Have you seen the size of them? Find someone else.`,
+        suggestions: [],
       });
     }
 

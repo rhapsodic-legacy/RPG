@@ -1,6 +1,7 @@
 // Rule-based home planner: needs + temperament + who-is-where.
 
 import { enjoys, isSleepTimeFor, peakHours, routineOf } from '../../home/routine';
+import { ambition, desire } from '../../home/attraction';
 import { conversationOf, engagement, partnerIn } from '../../sim/conversation';
 import { mealAt, mealKey } from '../../time';
 import { PORTABLE_PASTIMES, type Fighter, type FighterId, type Pastime, type RoomId, type SimState } from '../../types';
@@ -20,8 +21,9 @@ export function avoidance(state: SimState, me: FighterId, other: FighterId): num
 /** How much `me` wants to be near `other`. */
 export function affinity(state: SimState, me: FighterId, other: FighterId): number {
   const t = getFighter(state, me).temperament;
+  // Desire makes you gravitate toward whoever you fancy.
   return Math.max(0, peekRel(state, me, other).affection) * 0.15 * (0.5 + unit(t.sociability)) +
-    attachment(state, me, other) * 0.25;
+    attachment(state, me, other) * (0.1 + 0.6 * desire(getFighter(state, me)));
 }
 
 /** Social pull/push of a room, given who is expected there. */
@@ -68,6 +70,7 @@ export class RuleActivityPolicy implements ActivityPolicy {
 
     if (isInjured(f, tick)) {
       const infirmary = roomsOfKind(state, 'infirmary')[0];
+      if (isSleepTimeFor(f, tick)) return { activity: 'sleep', location: infirmary?.id ?? f.def.bedroomId, reason: 'injured, asleep' };
       return { activity: 'recover', location: infirmary?.id ?? f.def.bedroomId, reason: 'injured' };
     }
     if (isSleepTimeFor(f, tick)) {
@@ -101,7 +104,7 @@ export class RuleActivityPolicy implements ActivityPolicy {
       const tired = 0.7 * (1 - n.energy) * (1 - n.energy);
       add(
         { activity: 'train', location: gym.id, reason: `training${social.note ? `; ${social.note}` : ''}` },
-        0.3 + 0.3 * unit(t.discipline) + 0.2 * n.energy - tired + peakHours(f, tick) + social.score,
+        0.3 + 0.3 * unit(t.discipline) + 0.2 * n.energy - tired + peakHours(f, tick) + 0.5 * ambition(f) + social.score,
       );
     }
     for (const common of roomsOfKind(state, 'common')) {

@@ -35,3 +35,6 @@ export * from './combat/tactics';
 export * from './scenarios/rival-night';
 export * from './sim/conversation';
 export * from './home/routine';
+export * from './content/generate';
+export * from './home/attraction';
+export * from './scenarios/suzie-q';

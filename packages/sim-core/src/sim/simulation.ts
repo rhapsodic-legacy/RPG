@@ -15,8 +15,10 @@ import {
 } from '../time';
 import type { Conversation, ConversationKind, FighterId, ScheduledFight, SimState, UtteranceInterpretation, WorldEvent } from '../types';
 import { enjoys } from '../home/routine';
+import { canBeAttracted } from '../home/attraction';
 import { engagement, markTold, partnerIn, sharedPastime, topicsFor, WILLING_TO_TALK, type Topic } from './conversation';
 import { maxHp } from '../combat/body';
+import { refusesFight } from '../mind/teams';
 import { runTeamFight } from '../combat/fight';
 import { recordFight } from '../combat/records';
 import type { FightResult } from '../combat/types';
@@ -36,7 +38,7 @@ import {
 } from '../world';
 import type { Input, JournalEntry } from './inputs';
 import { perceive } from './perception';
-import { createState, type Scenario } from './scenario';
+import { createState, makeFighter, type Scenario } from './scenario';
 
 export type EventDraft = Omit<WorldEvent, 'id' | 'tick' | 'witnesses' | 'gloss'> & { witnesses?: FighterId[] };
 
@@ -173,11 +175,24 @@ export class Simulation {
         // An accepted apology settles the apologiser's guilt up to now.
         if (e.apology?.accepted && a && b) s.cooldowns[`apology_ok:${a}>${b}`] = s.tick;
         break;
-      case 'brawl':
+      case 'brawl': {
+        const [x, y] = [...e.actors, ...e.targets];
         for (const id of [...e.actors, ...e.targets]) {
           getFighter(s, id).state.shakenUntil = s.tick + TICKS_PER_WEEK;
         }
+        // Fists leave marks — the lighter fighter usually comes off worse.
+        if (x && y) {
+          for (const [me, them] of [[x, y], [y, x]] as const) {
+            const ratio = getFighter(s, them).def.body.massKg / getFighter(s, me).def.body.massKg;
+            const hours = Math.round(12 + 36 * (ratio - 0.8));
+            if (hours <= 0) continue;
+            const f = getFighter(s, me);
+            const until = s.tick + hours * 2;
+            f.state.injuredUntil = Math.max(f.state.injuredUntil ?? 0, until);
+          }
+        }
         break;
+      }
       case 'injury':
         for (const id of e.targets) {
           if (e.injury) getFighter(s, id).state.injuredUntil = s.tick + e.injury.days * TICKS_PER_DAY;
@@ -240,6 +255,13 @@ export class Simulation {
       case 'set_cooks':
         s.kitchens[input.kitchen] = { cooks: [...input.cooks] };
         break;
+      case 'recruit':
+        s.fighters[input.fighter.id] = makeFighter(input.fighter);
+        getFighter(s, input.fighter.id).state.location = input.fighter.bedroomId;
+        break;
+      case 'assign_bedroom':
+        getFighter(s, input.fighter).def.bedroomId = input.room;
+        break;
       case 'schedule_fight':
         s.upcoming.push(structuredClone(input.fight));
         break;
@@ -258,8 +280,15 @@ export class Simulation {
   private runScheduledFight(fight: ScheduledFight, emit: (d: EventDraft) => WorldEvent): void {
     const s = this.state;
     s.upcoming = s.upcoming.filter((f) => f.id !== fight.id);
-    // The injured can't fight.
-    const sides = fight.sides.map((side) => side.filter((id) => !isInjured(getFighter(s, id), s.tick))) as [FighterId[], FighterId[]];
+    // The injured can't fight; some won't.
+    const sides = fight.sides.map((side, i) =>
+      side.filter((id) => {
+        if (isInjured(getFighter(s, id), s.tick)) return false;
+        const no = refusesFight(s, id, side, fight.sides[1 - i]!);
+        if (no) emit({ type: 'refused_fight', actors: [id], targets: [], location: getFighter(s, id).state.location, intensity: 0.6, public: true, witnesses: [...new Set([id, ...fighterIds(s)])].sort() });
+        return !no;
+      }),
+    ) as [FighterId[], FighterId[]];
     if (sides[0].length === 0 || sides[1].length === 0) return;
     const result = runTeamFight(s, sides, { leaders: fight.leaders });
     this.lastFight = { fight, result };
@@ -359,7 +388,12 @@ export class Simulation {
     for (const f of fighterList(s)) {
       if (isAsleep(f, s.tick)) continue;
       for (const o of occupants(s, f.state.location)) {
-        if (o.def.id !== f.def.id) f.state.lastSeen[o.def.id] = s.tick;
+        if (o.def.id === f.def.id) continue;
+        // Laying eyes on someone for the first time.
+        if (f.state.lastSeen[o.def.id] === undefined && f.def.prefers && o.def.looks && canBeAttracted(f, o)) {
+          emit({ type: 'first_impression', actors: [f.def.id], targets: [o.def.id], location: f.state.location, intensity: 0.5, public: false, witnesses: [f.def.id] });
+        }
+        f.state.lastSeen[o.def.id] = s.tick;
       }
     }
 
@@ -500,6 +534,14 @@ export class Simulation {
         n.social += company ? 0.005 : -0.015 * (0.5 + unit(f.temperament.sociability));
         if (f.state.activity !== 'pastime') n.fun -= 0.01;
       }
+      if (f.state.activity !== 'sleep') {
+        // Desire builds like hunger; so does the itch for recognition in the proud.
+        n.intimacy -= 0.004 * (0.4 + 0.8 * unit(f.temperament.romance));
+        n.esteem -= 0.003 * (0.3 + 0.9 * unit(f.temperament.ego));
+        if (f.state.activity === 'train') n.esteem += 0.006 * unit(f.temperament.ego);
+      }
+      n.intimacy = clamp01(n.intimacy);
+      n.esteem = clamp01(n.esteem);
       n.fun = clamp01(n.fun);
       n.energy = clamp01(n.energy);
       n.comfort = clamp01(n.comfort);
@@ -600,6 +642,9 @@ export class Simulation {
           break;
         case 'gossip':
           this.openConversation('gossip', f.def.id, choice.target, emit, choice.aboutEventId);
+          break;
+        case 'show_off':
+          emit({ ...base, type: 'show_off', intensity: 0.3, public: true });
           break;
         case 'ask_out': {
           const accepted = policy.acceptsAdvance(s, choice.target, f.def.id);

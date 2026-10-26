@@ -7,6 +7,7 @@ import { COACH_ID, type FighterId, type RelDelta, type SimState, type WorldEvent
 import { clamp01, unit } from '../../util/math';
 import { attachment, bond, chemistry, getFighter, peekRel } from '../../world';
 import type { Appraisal, AppraisalContext, Appraiser } from '../providers';
+import { appeal, desire, physicalAppeal } from '../../home/attraction';
 
 /** Situational features of an event, from one perceiver's point of view. 0..1 each. */
 interface Features {
@@ -89,6 +90,7 @@ export class RuleAppraiser implements Appraiser {
     const f = zeroFeatures();
     const deltas: RelDelta[] = [];
     const tags: string[] = [event.type];
+    const needs: NonNullable<Appraisal['needs']> = {};
     const other = counterpart(event, me);
     const participants = [...event.actors, ...event.targets];
 
@@ -104,7 +106,7 @@ export class RuleAppraiser implements Appraiser {
             // Pestered: the unsociable get irritated.
             f.displeasure = 0.15 * (1 - unit(t.sociability));
             tags.push('pestered');
-            deltas.push({ toward: other, affection: -0.01 * (1 - unit(t.sociability)) });
+            deltas.push({ toward: other, affection: -0.01 * (1 - unit(t.sociability)), resentment: 0.015 });
           }
           break;
         }
@@ -137,24 +139,56 @@ export class RuleAppraiser implements Appraiser {
         break;
       }
 
-      case 'flirt': {
+      case 'flirt':
+      case 'show_off': {
+        const showOff = event.type === 'show_off';
         if (role === 'witness') {
-          this.romanticTriad(state, me, event, f, deltas, 0.5);
+          this.romanticTriad(state, me, event, f, deltas, showOff ? 0.3 : 0.5);
+          if (f.jealousy > 0.25) tags.push('jealous');
+          if (this.envy(state, me, event, f, deltas)) tags.push('envy');
           break;
         }
         if (!other) break;
         if (role === 'actor') {
           f.affection = 0.2;
           deltas.push({ toward: other, attraction: attractionGrowth(state, me, other, 0.5) });
-        } else if (peekRel(state, me, other).attraction >= 0.2) {
-          f.affection = 0.5;
-          deltas.push({ toward: other, attraction: attractionGrowth(state, me, other, 1.5), affection: 0.02 });
+          needs.esteem = 0.02;
         } else {
-          f.threat = 0.1; // unwanted attention is awkward
-          deltas.push({ toward: other, fear: 0.03 });
+          // Being admired feeds esteem — more so for those who live for it.
+          needs.esteem = 0.04 + 0.08 * unit(t.ego);
+          tags.push('admired');
+          const likes = peekRel(state, me, other).attraction >= 0.2;
+          const swagger = showOff ? (getFighter(state, me).def.prefers?.confidence ?? 0.5) : 1;
+          if (likes) {
+            f.affection = 0.5;
+            f.pleasure = 0.2 * unit(t.ego);
+            deltas.push({ toward: other, attraction: attractionGrowth(state, me, other, 1.5 * swagger), affection: 0.02 });
+          } else {
+            f.threat = 0.1; // unwanted attention is awkward
+            f.displeasure = showOff ? 0.1 : 0;
+            deltas.push({ toward: other, fear: 0.02, affection: -0.01 });
+          }
         }
         break;
       }
+
+      case 'first_impression': {
+        // Seeing someone for the first time. Interest happens before any words.
+        if (role !== 'actor' || !other) break;
+        // The eye is caught by looks and type, and more so when desire is running high.
+        const spark = Math.min(appeal(state, me, other), physicalAppeal(getFighter(state, me), getFighter(state, other)) * (0.6 + 0.6 * desire(getFighter(state, me))));
+        const att = Math.max(peekRel(state, me, other).attraction, spark);
+        deltas.push({ toward: other, attraction: Math.max(0, spark - peekRel(state, me, other).attraction) });
+        if (att >= 0.45) {
+          f.affection = 0.4 * att;
+          f.pleasure = 0.3 * att;
+          tags.push('smitten');
+        }
+        break;
+      }
+
+      case 'refused_fight':
+        break;
 
       case 'romance_start':
       case 'affection_display': {
@@ -163,6 +197,16 @@ export class RuleAppraiser implements Appraiser {
             f.humiliation = 0.3 + 0.2 * unit(t.ego);
             f.loss = 0.3;
             tags.push('turned_down');
+            // Led on? If they'd been flirting with me, being turned down feels like being played.
+            const ledOn = getFighter(state, me).memories.some((m) => {
+              const e = state.events[Number(m.eventId.slice(1))];
+              return e?.type === 'flirt' && e.actors[0] === other && e.targets[0] === me && state.tick - e.tick < 144;
+            });
+            if (ledOn) {
+              f.betrayal = 0.3 * (0.5 + unit(t.ego));
+              tags.push('teased');
+              deltas.push({ toward: other, resentment: 0.12 * (unit(t.ego) + unit(t.volatility)), respect: -0.05 });
+            }
           } else if (role === 'target' && other) {
             f.guilt = 0.1;
           }
@@ -173,6 +217,7 @@ export class RuleAppraiser implements Appraiser {
           break;
         }
         f.affection = event.type === 'romance_start' ? 0.9 : 0.5;
+        needs.intimacy = event.type === 'romance_start' ? 0.3 : 0.12;
         deltas.push({ toward: other, affection: 0.04, attraction: attractionGrowth(state, me, other, 0.5), trust: 0.02 });
         // Guilt toward a friend who is the partner's ex.
         if (event.type === 'romance_start') {
@@ -365,6 +410,7 @@ export class RuleAppraiser implements Appraiser {
         if (mySide !== null) {
           if (m.winningSide === mySide) {
             f.achievement = 0.6;
+            needs.esteem = 0.3;
             for (const mate of m.sides[mySide]) if (mate !== me) deltas.push({ toward: mate, affection: 0.03, respect: 0.03 });
           } else if (m.winningSide !== null) {
             f.humiliation = 0.4;
@@ -455,7 +501,7 @@ export class RuleAppraiser implements Appraiser {
       ) as EmotionVector;
     }
 
-    return { emotions, importance, deltas, tags };
+    return { emotions, importance, deltas, tags, ...(Object.keys(needs).length ? { needs } : {}) };
   }
 
   /**
@@ -496,6 +542,21 @@ export class RuleAppraiser implements Appraiser {
       });
       deltas.push({ toward: beloved, resentment: 0.08 * jealousy, trust: -0.08 * jealousy });
     }
+  }
+
+  /**
+   * Watching someone else soak up attention you crave: envy, if your own esteem is
+   * running low and you're the proud type.
+   */
+  private envy(state: SimState, me: FighterId, event: WorldEvent, f: Features, deltas: RelDelta[]): boolean {
+    const admired = event.targets[0];
+    if (!admired || admired === me) return false;
+    const self = getFighter(state, me);
+    const hunger = (1 - self.state.needs.esteem) * unit(self.temperament.ego);
+    if (hunger < 0.15) return false;
+    f.jealousy = Math.max(f.jealousy, hunger * 0.6);
+    deltas.push({ toward: admired, resentment: 0.03 * hunger, affection: -0.02 * hunger });
+    return true;
   }
 
   /**

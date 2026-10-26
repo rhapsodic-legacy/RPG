@@ -48,7 +48,7 @@ export function makeFighter(def: FighterDef): Fighter {
       conversation: null,
       engrossed: 0,
       told: {},
-      needs: { fullness: 0.7, energy: 0.8, social: 0.6, comfort: 0.7, fun: 0.6 },
+      needs: { fullness: 0.7, energy: 0.8, social: 0.6, comfort: 0.7, fun: 0.6, intimacy: 0.6, esteem: 0.6 },
       mood: zeroEmotions(),
       injuredUntil: null,
       shakenUntil: null,
@@ -93,6 +93,10 @@ export function createState(scenario: Scenario): SimState {
 
   for (const def of [...scenario.fighters].sort((a, b) => (a.id < b.id ? -1 : 1))) state.fighters[def.id] = makeFighter(def);
   for (const def of [...(scenario.outsiders ?? [])].sort((a, b) => (a.id < b.id ? -1 : 1))) state.outsiders[def.id] = makeFighter(def);
+  // Housemates already know each other by sight.
+  for (const a of Object.keys(state.fighters)) {
+    for (const b of Object.keys(state.fighters)) if (a !== b) state.fighters[a]!.state.lastSeen[b] = state.tick - 1;
+  }
 
   for (const [key, value] of Object.entries(scenario.chemistry ?? {})) {
     const [a, b] = key.split('|');
