@@ -112,3 +112,78 @@ export function inbox(sim: Simulation): string {
   }
   return lines.join('\n');
 }
+
+/**
+ * Where everyone spends their waking hours, and who they talk to. Collected by
+ * stepping the simulation and sampling each half hour.
+ */
+export function rhythm(sim: Simulation, days: number, schedule?: (tick: number) => import('@rpg/sim-core').Input[]): string {
+  const s = sim.state;
+  const ids = fighterIds(s);
+  const where: Record<string, Record<string, number>> = {};
+  const talkTicks: Record<string, Record<string, number>> = {};
+  const starts: Record<string, number> = {};
+  const brushOffs: Record<string, number> = {};
+  let conversations = 0;
+  const end = s.tick + days * 48;
+  while (s.tick < end) {
+    const events = sim.step(schedule?.(s.tick) ?? []);
+    for (const e of events) {
+      if (e.conversation?.part === 'opening') {
+        conversations++;
+        starts[e.actors[0]!] = (starts[e.actors[0]!] ?? 0) + 1;
+      }
+      if (e.conversation?.part === 'brushed_off') brushOffs[e.actors[0]!] = (brushOffs[e.actors[0]!] ?? 0) + 1;
+    }
+    for (const id of ids) {
+      const f = s.fighters[id]!;
+      if (f.state.activity === 'sleep') continue;
+      const label = f.state.activity === 'pastime' ? f.state.pastime ?? 'pastime' : f.state.activity;
+      const key = `${label} @ ${nameOf(s, f.state.location)}`;
+      (where[id] ??= {})[key] = (where[id]![key] ?? 0) + 1;
+      if (f.state.conversation) {
+        const c = s.conversations.find((x) => x.id === f.state.conversation);
+        const other = c ? (c.participants[0] === id ? c.participants[1] : c.participants[0]) : null;
+        if (other) (talkTicks[id] ??= {})[other] = (talkTicks[id]![other] ?? 0) + 1;
+      }
+    }
+  }
+  const lines = ['', `Daily rhythm over ${days} days (${(conversations / days).toFixed(1)} conversations a day across the house):`];
+  for (const id of ids) {
+    const total = Object.values(where[id] ?? {}).reduce((a, b) => a + b, 0) || 1;
+    const top = Object.entries(where[id] ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([k, v]) => `${k} ${Math.round((100 * v) / total)}%`)
+      .join(', ');
+    const talks = Object.entries(talkTicks[id] ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([o, v]) => `${nameOf(s, o)} ${(v / 2 / days).toFixed(1)}h`)
+      .join(', ');
+    lines.push(`  ${nameOf(s, id).padEnd(7)} ${top}`);
+    lines.push(`          talks/day: ${talks || 'nobody'}; starts ${((starts[id] ?? 0) / days).toFixed(1)} a day, brushed off ${((brushOffs[id] ?? 0) / days).toFixed(1)}`);
+  }
+  return lines.join('\n');
+}
+
+/** Journal entries that point at a recorded conversation, with the conversation itself. */
+export function replayJournal(sim: Simulation, id: string): string {
+  const s = sim.state;
+  const f = s.fighters[id];
+  if (!f) return `No fighter ${id}`;
+  const lines = ['', `──── ${f.def.name}'s journal, with the conversations behind it ────`];
+  let shown = 0;
+  for (const entry of f.diary) {
+    if (!entry.refs?.length) continue;
+    const recorded = entry.refs.map((r) => [...s.dialogue, ...s.conversations].find((c) => c.id === r)).filter((c) => c !== undefined);
+    if (recorded.length === 0) continue;
+    lines.push('', `  ${formatTime(entry.tick).replace(/ \d\d:\d\d$/, '')}  "${entry.text}"`);
+    for (const c of recorded) {
+      lines.push(`    ┌ ${formatTime(c.startedAt)} → ${formatTime(c.endedAt ?? s.tick).slice(-5)}, ${nameOf(s, c.location)}`);
+      for (const t of c.turns) lines.push(`    │ ${nameOf(s, t.speaker)}: ${t.text}`);
+    }
+    shown++;
+  }
+  if (!shown) lines.push('  (no recorded conversations in the last few days)');
+  return lines.join('\n');
+}

@@ -29,6 +29,8 @@ npm run sim -- --compare          # same fighters, one vs two kitchens
 npm run sim -- --inspect bob      # print Bob's LLM-ready mind context
 npm run sim -- --verbose          # every event, including chats and meals
 npm run sim -- --journal martha --inbox   # read a journal and the manager's inbox
+npm run sim -- --days 7 --rhythm          # daily rhythms: where everyone spends time, who talks to whom
+npm run sim -- --days 6 --talks martha    # journal lines with the recorded conversations behind them
 
 npm run fight -- --a brick --b shell --log        # sparring gym, play-by-play
 npm run fight -- --a duke --b shell --rounds 4    # watch learning across fights

@@ -7,6 +7,7 @@ import { TemplateNarrator } from './narrator';
 import { RuleReflector } from './reflector';
 import { KeywordUtteranceInterpreter } from './utterance';
 import { RuleCorrespondent, RuleDiarist } from './voice';
+import { TemplateConversationalist } from './conversation';
 
 /** The default, fully rule-based mind. Swap any member for a richer provider. */
 export function ruleBasedProviders(): CognitionProviders {
@@ -20,5 +21,6 @@ export function ruleBasedProviders(): CognitionProviders {
     narrator: new TemplateNarrator(),
     diarist: new RuleDiarist(),
     correspondent: new RuleCorrespondent(),
+    conversationalist: new TemplateConversationalist(),
   };
 }

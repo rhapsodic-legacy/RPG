@@ -13,7 +13,8 @@ import type {
   SimState,
 } from './types';
 import { clamp01, clampSigned } from './util/math';
-import { isSleepTime, type Tick } from './time';
+import { isSleepTimeFor } from './home/routine';
+import type { Tick } from './time';
 
 export function pairKey(a: string, b: string): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
@@ -152,7 +153,7 @@ export function isShaken(f: Fighter, tick: Tick): boolean {
 }
 
 export function isAsleep(f: Fighter, tick: Tick): boolean {
-  return f.state.activity === 'sleep' && isSleepTime(tick);
+  return f.state.activity === 'sleep' && isSleepTimeFor(f, tick);
 }
 
 /** Awake fighters currently in a room, sorted by id. */

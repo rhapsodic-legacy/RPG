@@ -33,3 +33,5 @@ export * from './combat/records';
 export * from './combat/talk';
 export * from './combat/tactics';
 export * from './scenarios/rival-night';
+export * from './sim/conversation';
+export * from './home/routine';

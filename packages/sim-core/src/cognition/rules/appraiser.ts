@@ -95,6 +95,19 @@ export class RuleAppraiser implements Appraiser {
     switch (event.type) {
       case 'chat': {
         if (role === 'witness' || !other) break;
+        if (event.conversation?.part === 'brushed_off') {
+          if (role === 'actor') {
+            // Turned away: stings the proud a little, and it's remembered.
+            f.humiliation = 0.1 + 0.1 * unit(t.ego);
+            tags.push('brushed_off');
+          } else {
+            // Pestered: the unsociable get irritated.
+            f.displeasure = 0.15 * (1 - unit(t.sociability));
+            tags.push('pestered');
+            deltas.push({ toward: other, affection: -0.01 * (1 - unit(t.sociability)) });
+          }
+          break;
+        }
         const compat = compatibility(t, getFighter(state, other).temperament);
         const ceiling = 0.25 + 0.5 * compat;
         f.affection = 0.25 * (0.6 + compat);
@@ -105,6 +118,21 @@ export class RuleAppraiser implements Appraiser {
             Math.min(0, ceiling - peekRel(state, me, other).affection) * 0.005,
           familiarity: 0.02,
           attraction: attractionGrowth(state, me, other),
+        });
+        break;
+      }
+
+      case 'shared_pastime': {
+        // Side by side doing something you both love: quiet closeness, no words needed.
+        if (role === 'witness' || !other) break;
+        const compat = compatibility(t, getFighter(state, other).temperament);
+        const ceiling = 0.25 + 0.5 * compat;
+        f.pleasure = 0.1;
+        deltas.push({
+          toward: other,
+          affection: Math.max(0, ceiling - peekRel(state, me, other).affection) * 0.02,
+          familiarity: 0.01,
+          attraction: attractionGrowth(state, me, other, 0.4),
         });
         break;
       }
@@ -130,6 +158,16 @@ export class RuleAppraiser implements Appraiser {
 
       case 'romance_start':
       case 'affection_display': {
+        if (event.romance?.accepted === false) {
+          if (role === 'actor' && other) {
+            f.humiliation = 0.3 + 0.2 * unit(t.ego);
+            f.loss = 0.3;
+            tags.push('turned_down');
+          } else if (role === 'target' && other) {
+            f.guilt = 0.1;
+          }
+          break;
+        }
         if (role === 'witness' || !other) {
           this.romanticTriad(state, me, event, f, deltas, event.type === 'romance_start' ? 1 : 0.6);
           break;
@@ -278,7 +316,15 @@ export class RuleAppraiser implements Appraiser {
       case 'sparring': {
         if (role === 'witness' || !other) break;
         f.achievement = 0.3;
-        deltas.push({ toward: other, respect: 0.03, familiarity: 0.03 });
+        // Training partners bond: respect first, but warmth (and sometimes more) follows.
+        const ceiling = 0.25 + 0.5 * compatibility(t, getFighter(state, other).temperament);
+        deltas.push({
+          toward: other,
+          respect: 0.03,
+          familiarity: 0.03,
+          affection: Math.max(0, ceiling - peekRel(state, me, other).affection) * 0.03,
+          attraction: attractionGrowth(state, me, other, 0.5),
+        });
         break;
       }
 

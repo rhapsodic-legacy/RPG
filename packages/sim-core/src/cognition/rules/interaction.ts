@@ -2,6 +2,7 @@
 
 import { GOSSIP_WORTHY, recencyOf } from '../../mind/memory';
 import { unaddressedGrievance } from '../../sim/perception';
+import { engagement, WILLING_TO_TALK } from '../../sim/conversation';
 import type { FighterId, SimState } from '../../types';
 import { unit } from '../../util/math';
 import { bond, getFighter, partnerOf, peekRel } from '../../world';
@@ -12,6 +13,24 @@ const THRESHOLD = 0.25;
 
 export function interactionCooldownKey(kind: string, actor: FighterId, target: FighterId): string {
   return `${kind}:${actor}>${target}`;
+}
+
+/** Recently turned down romantically by this person (fading as memories do). */
+export function turnedDownBy(state: SimState, actor: FighterId, other: FighterId): number {
+  let sum = 0;
+  for (const m of getFighter(state, actor).memories) {
+    if (m.tags.includes('turned_down') && m.entities.includes(other)) sum += recencyOf(m, state.tick) * 1.5;
+  }
+  return sum;
+}
+
+/** "They just told me they're busy": recent brush-offs from this person, fading as memories do. */
+export function recentlyRebuffed(state: SimState, actor: FighterId, other: FighterId): number {
+  let sum = 0;
+  for (const m of getFighter(state, actor).memories) {
+    if (m.tags.includes('brushed_off') && m.entities.includes(other)) sum += recencyOf(m, state.tick);
+  }
+  return 0.5 * sum;
 }
 
 /**
@@ -112,6 +131,17 @@ export class RuleInteractionPolicy implements InteractionPolicy {
     return 'walked_away';
   }
 
+  acceptsAdvance(state: SimState, target: FighterId, actor: FighterId): boolean {
+    const me = getFighter(state, target);
+    const toThem = peekRel(state, target, actor).attraction;
+    if (toThem < 0.5 || partnerOf(state, target)) return false;
+    // Only if they're the one I want most right now.
+    for (const [other, r] of Object.entries(me.relationships)) {
+      if (other !== actor && (state.fighters[other] || state.outsiders[other]) && r.attraction > toThem + 0.05) return false;
+    }
+    return true;
+  }
+
   acceptsApology(state: SimState, target: FighterId, actor: FighterId): boolean {
     const t = getFighter(state, target).temperament;
     const r = peekRel(state, target, actor);
@@ -152,7 +182,14 @@ export class RuleInteractionPolicy implements InteractionPolicy {
           {
             kind: 'chat',
             target: other,
-            utility: 0.2 + 0.35 * (1 - me.state.needs.social) + 0.2 * unit(t.sociability) + 0.3 * r.affection,
+            // Only if talking to them beats what I'm doing right now.
+            utility:
+              engagement(state, actor, other, 'chat') -
+              Math.max(me.state.engrossed, WILLING_TO_TALK) +
+              THRESHOLD -
+              recentlyRebuffed(state, actor, other) -
+              // Reading the room: you can see they're absorbed. Only the pushy barge in.
+              getFighter(state, other).state.engrossed * (0.2 + 0.6 * unit(t.discipline) - 0.3 * unit(t.sociability)),
           },
           4,
         );
@@ -163,7 +200,7 @@ export class RuleInteractionPolicy implements InteractionPolicy {
         if (myPartner) restraint += 0.2 + 0.4 * unit(t.loyalty);
         if (theirPartner) restraint += 0.1 + 0.4 * unit(t.loyalty) * Math.max(0, peekRel(state, actor, theirPartner).affection);
         consider(
-          { kind: 'flirt', target: other, utility: r.attraction * 0.9 * (0.5 + 0.5 * unit(t.romance)) - restraint },
+          { kind: 'flirt', target: other, utility: r.attraction * 0.9 * (0.5 + 0.5 * unit(t.romance)) - restraint - recentlyRebuffed(state, actor, other) },
           6,
         );
       }
@@ -172,19 +209,24 @@ export class RuleInteractionPolicy implements InteractionPolicy {
         !myPartner &&
         !theirPartner &&
         r.attraction >= 0.55 &&
-        back.attraction >= 0.5 &&
         r.familiarity >= 0.3
       ) {
-        consider({ kind: 'ask_out', target: other, utility: 1 + r.attraction });
+        // Only the one you want most; hope, courage and ego push; a recent no holds you back.
+        const mostWanted = Object.entries(me.relationships).every(
+          ([o, x]) => o === other || !(state.fighters[o] || state.outsiders[o]) || x.attraction <= r.attraction,
+        );
+        const nerve = !mostWanted ? 0 : 0.4 + r.attraction + 0.3 * unit(t.courage) + 0.2 * unit(t.ego) - turnedDownBy(state, actor, other);
+        consider({ kind: 'ask_out', target: other, utility: nerve });
       }
 
+      // Couples spend time together: a romantic conversation, visible to anyone around.
       if (myPartner === other) {
-        consider({ kind: 'affection_display', target: other, utility: 0.55 }, 6);
+        consider({ kind: 'flirt', target: other, utility: engagement(state, actor, other, 'flirt') - Math.max(me.state.engrossed, WILLING_TO_TALK) + THRESHOLD - recentlyRebuffed(state, actor, other) });
       }
 
       const sadness = getFighter(state, other).state.mood.sadness;
       if (sadness > 0.3 && r.affection > 0.3 && !guiltyAbout) {
-        consider({ kind: 'comfort', target: other, utility: 0.3 + sadness * 0.5 + 0.2 * unit(t.loyalty) });
+        consider({ kind: 'comfort', target: other, utility: 0.3 + sadness * 0.5 + 0.2 * unit(t.loyalty) - recentlyRebuffed(state, actor, other) });
       }
 
       // Make amends: out of guilt, or because a feud costs the team. Having already
@@ -214,7 +256,7 @@ export class RuleInteractionPolicy implements InteractionPolicy {
         consider({
           kind: 'gossip',
           target: other,
-          utility: 0.3 + gossip.juiciness * 1.5 * (0.4 + 0.6 * unit(t.sociability)),
+          utility: 0.3 + gossip.juiciness * 1.5 * (0.4 + 0.6 * unit(t.sociability)) - recentlyRebuffed(state, actor, other),
           aboutEventId: gossip.eventId,
         });
       }

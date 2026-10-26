@@ -64,6 +64,8 @@ most common way to get work rejected.
 npm install
 npm test / npm run typecheck
 npm run sim [-- --days 21 --kitchens 2 --compare --verbose --journal martha --inbox --inspect bob]
+npm run sim -- --days 7 --rhythm          # where everyone spends their time, who talks to whom
+npm run sim -- --days 6 --talks martha    # journal lines with the recorded conversations behind them
 npm run fight [-- --a brick --b shell --log --rounds 4 --scenario love-triangle --days 14]
 npm run match [-- --leader martha|jin|none]     # 3v3 Night of Rivals end-to-end
 npm run replay                                   # builds arena-replay.html (2.5D viewer)
@@ -85,6 +87,10 @@ sim-core/src/
   temperament.ts      10 axes incl. pragmatism; traits; compatibility
   emotion.ts          emotion vectors; feel() = add + counteract (no decay)
   time.ts             30-min ticks, meals, sleep, nightly slot (02:00)
+  home/routine.ts     chronotype (own bedtime/peak hours), pastimes (derived from temperament
+                      if not given)
+  sim/conversation.ts topics (news / feelings / shared pastime), engagement (appetite for
+                      company × who it's with + something to say), WILLING_TO_TALK
   mind/memory.ts      memory stream, Smallville retrieval, GOSSIP_WORTHY, pruning (capacity)
   mind/threads.ts     open threads → preoccupation → focus → readiness
   mind/teams.ts       teammateRefusals ("won't fight with Jin or Martha")
@@ -124,14 +130,30 @@ Key mechanics in one line each:
   weighted by `heed()`; tactics weighs grudge, perceived/live matchup, protect (with
   foresight), finish, glory, fear, distance, commitment, told-to (discounted by
   credibility). Hover mode = wanting a claimed opponent while holding back.
+- **Conversations** are joint activities: opened only if talking beats what the opener is
+  doing (`engrossed`), accepted only if it beats what the other is doing (else a remembered
+  brush-off), continued each half hour only while both still choose 'talk' over everything
+  else. Company satisfies (social need fills only through conversation); topics run out
+  (`told`); brush-offs and romantic rejections are remembered and dampen retries. Turns are
+  recorded; `state.dialogue` keeps 3 days (DIALOGUE_DAYS); journal entries carry `refs`.
+  Couples' time together shows as public affection. Asking out goes only to the one you want
+  most, and the asked person decides (`acceptsAdvance`).
+- **Routines**: per-fighter bedtimes, peak training hours, pastimes in rooms with amenities
+  (books/music go anywhere), shared pastimes and sparring quietly build closeness; room
+  choice is pulled by who's expected there (the bookworm reads where their crush plays pool).
 - **Loop**: scheduled fights run inside `step()`; record + speech/rescue/knockout/
   match_result events + injuries flow into memories, journals and relationships.
 
 ## 5. Current state of behaviour (honest)
 
-- Love triangle (14–21 days): breakup, new couple, gossip, betrayal belief, feud, brawls,
-  Martha distracted, Bob refuses to fight with Jin/Martha. With pacing off, ~90 chats/day
-  and romance ~3× faster (see §6.1).
+- Love triangle (21 days) with conversations + routines: ~3 conversations a day across the
+  house (~30–60 min each); Martha journals "I have strong feelings for Jin now… I hope Bob is
+  ok with that" while Bob is in the infirmary; Martha and Jin bond over TV evenings and
+  sparring; breakup ~day 7, Jin and Martha together; Jin ("I feel terrible about Bob") and
+  Martha both apologise, Bob accepts but writes "I won't fight on a team with Jin or Martha.
+  It hurts too much." Calmer than the old constant-chatter version (no brawls).
+- Template dialogue is wooden and repetitive by design: the Conversationalist seam is where
+  an LLM should write the words.
 - Night of Rivals: Bob dictates, claims Sting; Sting taunts; Jin asks to lead by email;
   Bob loses to crouching Sting again; Jin finishes Vex then "Hang on, Bob!" too late;
   Bob's journal: "Jin jumped in for me against Sting. I didn't ask for that."
@@ -141,7 +163,8 @@ Key mechanics in one line each:
 
 ## 6. Next steps (owner agreed to all, in this order)
 
-1. **Conversations that take time + personal daily rhythms** (in progress next).
+1. ✅ **Conversations that take time + personal daily rhythms** (first pass done). Follow-ups:
+   group conversations (3+), a "dialogue day" save/load beyond 3 days, better reply logic.
    - Why 90+/day: 30-min ticks, every awake fighter picks the best interaction above a low
      bar each tick, chats are instantaneous and never satisfy anyone.
    - Make conversations multi-turn activities that occupy both people for a duration and

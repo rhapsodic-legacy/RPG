@@ -24,9 +24,12 @@
  */
 
 import type { EmotionVector } from '../emotion';
+import type { Topic } from '../sim/conversation';
 import type {
   Activity,
   Belief,
+  Conversation,
+  Pastime,
   EntityId,
   FighterId,
   Memory,
@@ -71,6 +74,9 @@ export interface Appraiser {
 export interface ActivityChoice {
   activity: Activity;
   location: RoomId;
+  pastime?: Pastime;
+  /** How much the fighter wanted this, as they weighed it. */
+  utility?: number;
   /** Human-readable explanation for "why?" tooling. */
   reason: string;
   visitTarget?: FighterId;
@@ -119,6 +125,8 @@ export interface InteractionPolicy {
   strikesFirst(state: SimState, initiator: FighterId, target: FighterId): boolean;
   respondToConfrontation(state: SimState, target: FighterId, initiator: FighterId): ConfrontationResponse;
   acceptsApology(state: SimState, target: FighterId, actor: FighterId): boolean;
+  /** Says yes to being asked out? */
+  acceptsAdvance(state: SimState, target: FighterId, actor: FighterId): boolean;
 }
 
 // ---------------------------------------------------------------- reflection
@@ -174,10 +182,32 @@ export interface Narrator {
 
 // ---------------------------------------------------------------- voice
 
+export interface DiaryDraft {
+  text: string;
+  /** Conversations the entry mentions, so the player can replay them. */
+  refs?: string[];
+}
+
 /** Writes a fighter's nightly journal entry, from what happened and how they feel. */
 export interface Diarist {
   readonly id: string;
-  write(state: SimState, fighter: FighterId, since: number): string | null;
+  write(state: SimState, fighter: FighterId, since: number): DiaryDraft | null;
+}
+
+export interface LineContext {
+  state: SimState;
+  conversation: Conversation;
+  speaker: FighterId;
+  listener: FighterId;
+  moment: 'open' | 'share' | 'reply' | 'small_talk' | 'small_reply' | 'close' | 'brush_off';
+  topic?: Topic;
+  pastime?: Pastime | null;
+}
+
+/** Writes what people actually say in conversation. A prime spot for an LLM. */
+export interface Conversationalist {
+  readonly id: string;
+  line(ctx: LineContext): string;
 }
 
 export type MessageDraft = Omit<Message, 'id' | 'tick' | 'from'>;
@@ -198,4 +228,5 @@ export interface CognitionProviders {
   narrator: Narrator;
   diarist: Diarist;
   correspondent: Correspondent;
+  conversationalist: Conversationalist;
 }

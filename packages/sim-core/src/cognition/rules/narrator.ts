@@ -51,7 +51,7 @@ export class TemplateNarrator implements Narrator {
       case 'flirt':
         return `${a} flirted with ${b}.`;
       case 'romance_start':
-        return `${a} and ${b} kissed in ${loc} — they're together now.`;
+        return e.romance?.accepted === false ? `${a} asked ${b} out. ${b} said no.` : `${a} and ${b} kissed in ${loc} — they're together now.`;
       case 'affection_display':
         return `${a} and ${b} were openly affectionate in ${loc}.`;
       case 'breakup':
@@ -98,6 +98,8 @@ export class TemplateNarrator implements Narrator {
         const lose = m.sides[1 - m.winningSide]!;
         return `${list(win.map(n))} beat ${list(lose.map(n))} (${m.method}).`;
       }
+      case 'shared_pastime':
+        return `${a} and ${b} spent time together in ${loc}.`;
       case 'knockout':
         return `${a} knocked out ${b}.`;
       case 'rescue':

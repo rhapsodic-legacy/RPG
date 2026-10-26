@@ -5,7 +5,8 @@ import type { Tick } from '../time';
 import type { HouseLayout } from '../types';
 
 /**
- * Bob and Jin are friends. Bob is dating Martha and is the house cook. Nothing
+ * Bob and Jin are friends. Bob is dating Martha and is the house cook. Bob spends his
+ * evenings at the billiards table; Martha and Jin both love the TV lounge. Nothing
  * else is scripted except Bob getting injured on day 2 (later this will come
  * from an arena fight). Everything after that is emergent.
  */
@@ -20,7 +21,8 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
       { id: 'kitchen_a', kind: 'kitchen', name: opts.kitchens === 2 ? 'east kitchen' : 'kitchen' },
       ...(opts.kitchens === 2 ? [{ id: 'kitchen_b', kind: 'kitchen' as const, name: 'west kitchen' }] : []),
       { id: 'gym', kind: 'gym', name: 'gym' },
-      { id: 'lounge', kind: 'common', name: 'lounge' },
+      { id: 'lounge', kind: 'common', name: 'TV lounge', amenities: ['tv', 'gaming'] },
+      { id: 'den', kind: 'common', name: 'billiards room', amenities: ['billiards', 'music'] },
       { id: 'infirmary', kind: 'infirmary', name: 'infirmary' },
     ],
   };
@@ -36,6 +38,7 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
         temperament: makeTemperament({ aggression: 0.4, courage: 0.5, discipline: -0.2, ego: 0.6, loyalty: 0.5, volatility: 0.5, sociability: 0.2, romance: 0.3 }),
         skills: { cooking: 0.85 },
         bedroomId: 'bed_bob',
+        routine: { chronotype: 0.3, pastimes: { billiards: 0.9, golf: 0.5, tv: 0.3 } },
       },
       {
         id: 'jin',
@@ -44,6 +47,7 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
         temperament: makeTemperament({ aggression: 0.1, courage: 0.1, discipline: 0.3, ego: 0, loyalty: 0.3, volatility: 0, sociability: 0.5, curiosity: 0.4, romance: 0.5 }),
         skills: { cooking: 0.15 },
         bedroomId: 'bed_jin',
+        routine: { chronotype: 0.2, pastimes: { tv: 0.8, gaming: 0.6, reading: 0.3 } },
       },
       {
         id: 'martha',
@@ -52,6 +56,7 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
         temperament: makeTemperament({ aggression: 0.1, courage: 0.2, discipline: 0, ego: 0.1, loyalty: -0.3, volatility: 0.3, sociability: 0.6, curiosity: 0.3, romance: 0.6 }),
         skills: { cooking: 0.4 },
         bedroomId: 'bed_martha',
+        routine: { chronotype: 0.5, pastimes: { tv: 0.9, music: 0.6 } },
       },
       {
         id: 'rosa',
@@ -60,6 +65,7 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
         temperament: makeTemperament({ aggression: 0.2, courage: 0.3, discipline: 0.1, ego: 0.2, loyalty: 0.6, volatility: 0.3, sociability: 0.8, romance: -0.2 }),
         skills: { cooking: 0.5 },
         bedroomId: 'bed_rosa',
+        routine: { chronotype: 0, pastimes: { tv: 0.4, billiards: 0.4, music: 0.3 } },
       },
       {
         id: 'kai',
@@ -68,6 +74,7 @@ export function loveTriangle(opts: { kitchens: 1 | 2 } = { kitchens: 1 }): Scena
         temperament: makeTemperament({ aggression: 0, courage: 0.6, discipline: 0.7, ego: -0.2, loyalty: 0.2, volatility: -0.5, sociability: -0.5, curiosity: 0.2, romance: -0.6 }),
         skills: { cooking: 0.3 },
         bedroomId: 'bed_kai',
+        routine: { chronotype: -0.8, pastimes: { reading: 0.9, golf: 0.4 } },
       },
     ],
     kitchens: {

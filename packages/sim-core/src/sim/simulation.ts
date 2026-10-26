@@ -6,7 +6,6 @@ import { pruneMemories, retrieve } from '../mind/memory';
 import { computeFocus, computeThreads, preoccupation } from '../mind/threads';
 import {
   dayOf,
-  isSleepTime,
   mealKey,
   NIGHTLY_SLOT,
   slotOf,
@@ -14,12 +13,14 @@ import {
   TICKS_PER_WEEK,
   type Tick,
 } from '../time';
-import type { FighterId, ScheduledFight, SimState, UtteranceInterpretation, WorldEvent } from '../types';
+import type { Conversation, ConversationKind, FighterId, ScheduledFight, SimState, UtteranceInterpretation, WorldEvent } from '../types';
+import { enjoys } from '../home/routine';
+import { engagement, markTold, partnerIn, sharedPastime, topicsFor, WILLING_TO_TALK, type Topic } from './conversation';
 import { maxHp } from '../combat/body';
 import { runTeamFight } from '../combat/fight';
 import { recordFight } from '../combat/records';
 import type { FightResult } from '../combat/types';
-import { clamp01, fnv1a } from '../util/math';
+import { clamp01, fnv1a, unit } from '../util/math';
 import {
   applyRelDelta,
   fighterIds,
@@ -40,6 +41,8 @@ import { createState, type Scenario } from './scenario';
 export type EventDraft = Omit<WorldEvent, 'id' | 'tick' | 'witnesses' | 'gloss'> & { witnesses?: FighterId[] };
 
 const MIN_BELIEF_CONFIDENCE = 0.3;
+/** Days of full conversation transcripts kept for replay. */
+export const DIALOGUE_DAYS = 3;
 /** Comfort of a room when the layout doesn't say. */
 const DEFAULT_ROOM_COMFORT = 0.5;
 const REFLECTION_THRESHOLD = 0.5;
@@ -100,6 +103,7 @@ export class Simulation {
     this.updateNeeds();
     this.serveMeals(emit);
     this.spar(emit);
+    this.sharePastimes(emit);
     this.socialize(emit);
 
     for (const e of emitted) perceive(s, this.providers, e);
@@ -149,7 +153,7 @@ export class Simulation {
     const [a, b] = [...e.actors, ...e.targets];
     switch (e.type) {
       case 'romance_start':
-        if (a && b) {
+        if (a && b && e.romance?.accepted !== false) {
           for (const [x, y] of [[a, b], [b, a]] as const) {
             setLabel(s, x, y, 'dating', true);
             setLabel(s, x, y, 'ex', false);
@@ -341,6 +345,10 @@ export class Simulation {
       const choice = this.providers.activity.choose({ state: s, fighter: f.def.id, expected });
       f.state.activity = choice.activity;
       f.state.location = choice.location;
+      f.state.pastime = choice.pastime ?? null;
+      // Hanging out or sharing a meal is an open invitation; training or a good book isn't.
+      const open = choice.activity === 'talk' || choice.activity === 'socialize' || choice.activity === 'eat' || choice.activity === 'visit';
+      f.state.engrossed = open ? 0 : (choice.utility ?? 0);
       expected[f.def.id] = choice.location;
       if (choice.activity === 'visit' && choice.visitTarget) {
         f.state.lastVisit[choice.visitTarget] = dayOf(s.tick);
@@ -354,6 +362,95 @@ export class Simulation {
         if (o.def.id !== f.def.id) f.state.lastSeen[o.def.id] = s.tick;
       }
     }
+
+    // A conversation goes on only while both chose to stay in it.
+    for (const c of [...s.conversations]) {
+      const [a, b] = c.participants.map((p) => getFighter(s, p));
+      const stayed = (x: typeof a) => x!.state.activity === 'talk' && x!.state.location === c.location;
+      if (stayed(a) && stayed(b)) continue;
+      const leaver = !stayed(a) ? a! : b!;
+      const other = leaver === a ? b! : a!;
+      c.turns.push({ tick: s.tick, speaker: leaver.def.id, text: this.providers.conversationalist.line({ state: s, conversation: c, speaker: leaver.def.id, listener: other.def.id, moment: 'close' }) });
+      this.endConversation(c, leaver.def.id);
+    }
+  }
+
+  private endConversation(c: Conversation, endedBy: FighterId): void {
+    const s = this.state;
+    c.endedAt = s.tick;
+    c.endedBy = endedBy;
+    s.conversations = s.conversations.filter((x) => x.id !== c.id);
+    s.dialogue.push(c);
+    for (const p of c.participants) {
+      const f = getFighter(s, p);
+      f.state.conversation = null;
+      if (f.state.activity === 'talk') f.state.activity = 'socialize';
+    }
+  }
+
+  /** Someone starts a conversation; the other decides whether to join it. */
+  private openConversation(kind: ConversationKind, from: FighterId, to: FighterId, emit: (d: EventDraft) => WorldEvent, aboutEventId?: string): void {
+    const s = this.state;
+    const say = this.providers.conversationalist;
+    const location = getFighter(s, from).state.location;
+    const c: Conversation = { id: `c${s.nextConversationId++}`, participants: [from, to], kind, location, startedAt: s.tick, turns: [] };
+    c.turns.push({ tick: s.tick, speaker: from, text: say.line({ state: s, conversation: c, speaker: from, listener: to, moment: 'open' }) });
+    // They'll talk if it beats what they're doing — reading, the TV, their own thoughts.
+    if (engagement(s, to, from, kind) < Math.max(WILLING_TO_TALK, getFighter(s, to).state.engrossed)) {
+      c.turns.push({ tick: s.tick, speaker: to, text: say.line({ state: s, conversation: c, speaker: to, listener: from, moment: 'brush_off' }) });
+      c.declined = true;
+      emit({ type: 'chat', actors: [from], targets: [to], location, intensity: 0.45, public: false, conversation: { id: c.id, part: 'brushed_off' } });
+      this.endConversation(c, to);
+      return;
+    }
+    s.conversations.push(c);
+    for (const p of c.participants) {
+      const f = getFighter(s, p);
+      f.state.conversation = c.id;
+      f.state.activity = 'talk';
+    }
+    const couple = peekRel(s, from, to).labels.includes('dating');
+    const type = couple ? 'affection_display' : kind === 'flirt' ? 'flirt' : kind === 'comfort' ? 'comfort' : 'chat';
+    emit({ type, actors: [from], targets: [to], location, intensity: type === 'chat' ? 0.2 : 0.35, public: type !== 'chat' && type !== 'comfort', conversation: { id: c.id, part: 'opening' } });
+    if (kind === 'gossip' && aboutEventId) {
+      const m = getFighter(s, from).memories.find((x) => x.eventId === aboutEventId);
+      this.share(c, from, to, { key: m?.id ?? aboutEventId, kind: 'news', eventId: aboutEventId, ...(m ? { memoryId: m.id } : {}), weight: 1 }, emit);
+    }
+    // The rest of this first half hour.
+    this.talk(c, emit, true);
+  }
+
+  private share(c: Conversation, speaker: FighterId, listener: FighterId, topic: Topic, emit: (d: EventDraft) => WorldEvent): void {
+    const s = this.state;
+    const say = this.providers.conversationalist;
+    markTold(s, speaker, listener, topic.key);
+    c.turns.push({ tick: s.tick, speaker, text: say.line({ state: s, conversation: c, speaker, listener, moment: 'share', topic }), shared: true });
+    c.turns.push({ tick: s.tick, speaker: listener, text: say.line({ state: s, conversation: c, speaker: listener, listener: speaker, moment: 'reply', topic }) });
+    if (topic.kind === 'news' && topic.eventId) {
+      emit({ type: 'gossip', actors: [speaker], targets: [listener], location: c.location, intensity: 0.3, public: false, gossip: { aboutEventId: topic.eventId }, conversation: { id: c.id, part: 'continuing' } });
+    }
+  }
+
+  /** Another half hour of a conversation both chose to stay in. */
+  private talk(c: Conversation, emit: (d: EventDraft) => WorldEvent, firstHalfHour = false): void {
+    const s = this.state;
+    const say = this.providers.conversationalist;
+    const pastime = sharedPastime(s, c.participants[0], c.participants[1]);
+    for (const speaker of c.participants) {
+      const listener = partnerIn(c, speaker);
+      const topic = topicsFor(s, speaker, listener)[0];
+      if (topic) this.share(c, speaker, listener, topic, emit);
+      else {
+        c.turns.push({ tick: s.tick, speaker, text: say.line({ state: s, conversation: c, speaker, listener, moment: 'small_talk', pastime }) });
+        c.turns.push({ tick: s.tick, speaker: listener, text: say.line({ state: s, conversation: c, speaker: listener, listener: speaker, moment: 'small_reply', pastime }) });
+      }
+    }
+    // The opening already carried this half hour's feelings; later stretches carry their own.
+    if (firstHalfHour) return;
+    const [a, b] = c.participants;
+    const couple = peekRel(s, a, b).labels.includes('dating');
+    const type = couple ? 'affection_display' : c.kind === 'flirt' ? 'flirt' : c.kind === 'comfort' ? 'comfort' : 'chat';
+    emit({ type, actors: [a], targets: [b], location: c.location, intensity: type === 'chat' ? 0.15 : 0.3, public: type !== 'chat' && type !== 'comfort', conversation: { id: c.id, part: 'continuing' } });
   }
 
   private updateNeeds(): void {
@@ -372,7 +469,7 @@ export class Simulation {
           n.fullness -= 0.012;
           break;
         case 'train':
-          n.energy -= 0.04;
+          n.energy -= 0.06;
           n.fullness -= 0.025;
           n.comfort -= 0.005;
           break;
@@ -381,11 +478,29 @@ export class Simulation {
           n.comfort += 0.04;
           n.fullness -= 0.012;
           break;
+        case 'pastime':
+          n.energy -= 0.005;
+          n.comfort += 0.02;
+          n.fullness -= 0.012;
+          n.fun += 0.08 * (f.state.pastime ? enjoys(f, f.state.pastime) : 0.3);
+          break;
+        case 'talk':
+          n.energy -= 0.008;
+          n.fullness -= 0.012;
+          n.social += 0.1;
+          n.fun += 0.03 * unit(f.temperament.sociability);
+          break;
         default:
           n.energy -= 0.012;
           n.fullness -= 0.015;
       }
-      if (f.state.activity !== 'sleep') n.social += company ? 0.03 : -0.01;
+      if (f.state.activity !== 'sleep' && f.state.activity !== 'talk') {
+        // Wanting company builds like hunger — faster for the sociable — and only
+        // real conversation satisfies it; sitting in the same room barely does.
+        n.social += company ? 0.005 : -0.015 * (0.5 + unit(f.temperament.sociability));
+        if (f.state.activity !== 'pastime') n.fun -= 0.01;
+      }
+      n.fun = clamp01(n.fun);
       n.energy = clamp01(n.energy);
       n.comfort = clamp01(n.comfort);
       n.fullness = clamp01(n.fullness);
@@ -420,8 +535,23 @@ export class Simulation {
     }
   }
 
+  /** People enjoying the same pastime in the same room grow a little closer. */
+  private sharePastimes(emit: (d: EventDraft) => WorldEvent): void {
+    const s = this.state;
+    for (const room of s.layout.rooms) {
+      const here = occupants(s, room.id).filter((f) => f.state.activity === 'pastime' && f.state.pastime);
+      for (let i = 0; i < here.length; i++) {
+        for (let j = i + 1; j < here.length; j++) {
+          if (here[i]!.state.pastime !== here[j]!.state.pastime) continue;
+          emit({ type: 'shared_pastime', actors: [here[i]!.def.id], targets: [here[j]!.def.id], location: room.id, intensity: 0.1, public: false });
+        }
+      }
+    }
+  }
+
   private spar(emit: (d: EventDraft) => WorldEvent): void {
     const s = this.state;
+    const live = new Set<string>();
     for (const room of s.layout.rooms.filter((r) => r.kind === 'gym')) {
       const trainees = occupants(s, room.id).filter((f) => f.state.activity === 'train');
       for (let i = 0; i < trainees.length; i++) {
@@ -433,10 +563,15 @@ export class Simulation {
           // const key = `spar:${pairKey(a, b)}`;
           // if (!cooldownReady(s, key, TICKS_PER_DAY)) continue;
           // touchCooldown(s, key);
+          // One sparring session lasts as long as both keep training side by side.
+          const session = `sparring:${a < b ? `${a}|${b}` : `${b}|${a}`}`;
+          live.add(session);
+          s.cooldowns[session] ??= s.tick;
           emit({ type: 'sparring', actors: [a], targets: [b], location: room.id, intensity: 0.25, public: true });
         }
       }
     }
+    for (const key of Object.keys(s.cooldowns)) if (key.startsWith('sparring:') && !live.has(key)) delete s.cooldowns[key];
   }
 
 
@@ -445,28 +580,34 @@ export class Simulation {
     const policy = this.providers.interaction;
     // People already caught up in a confrontation this half hour.
     const embroiled = new Set<FighterId>();
+    // Conversations already under way carry on first.
+    const ongoing = [...s.conversations];
+    for (const c of ongoing) this.talk(c, emit);
     for (const f of fighterList(s)) {
-      if (isAsleep(f, s.tick) || isSleepTime(s.tick) || embroiled.has(f.def.id)) continue;
-      const present = occupants(s, f.state.location).map((o) => o.def.id);
+      if (isAsleep(f, s.tick) || embroiled.has(f.def.id) || f.state.conversation) continue;
+      const present = occupants(s, f.state.location)
+        .filter((o) => !o.state.conversation)
+        .map((o) => o.def.id);
       const choice = policy.choose(s, f.def.id, present);
       if (!choice) continue;
       touchCooldown(s, interactionCooldownKey(choice.kind, f.def.id, choice.target));
       const base = { actors: [f.def.id], targets: [choice.target], location: f.state.location };
       switch (choice.kind) {
         case 'chat':
-          emit({ ...base, type: 'chat', intensity: 0.2, public: false });
-          break;
         case 'flirt':
-          emit({ ...base, type: 'flirt', intensity: 0.35, public: true });
+        case 'comfort':
+          this.openConversation(choice.kind, f.def.id, choice.target, emit);
           break;
-        case 'ask_out':
-          emit({ ...base, type: 'romance_start', intensity: 0.8, public: true });
+        case 'gossip':
+          this.openConversation('gossip', f.def.id, choice.target, emit, choice.aboutEventId);
           break;
+        case 'ask_out': {
+          const accepted = policy.acceptsAdvance(s, choice.target, f.def.id);
+          emit({ ...base, type: 'romance_start', intensity: accepted ? 0.8 : 0.6, public: accepted, romance: { accepted } });
+          break;
+        }
         case 'affection_display':
           emit({ ...base, type: 'affection_display', intensity: 0.5, public: true });
-          break;
-        case 'comfort':
-          emit({ ...base, type: 'comfort', intensity: 0.4, public: false });
           break;
         case 'confront': {
           if (embroiled.has(choice.target)) break;
@@ -489,9 +630,6 @@ export class Simulation {
           emit({ ...base, type: 'apology', intensity: 0.6, public: false, apology: { accepted } });
           break;
         }
-        case 'gossip':
-          emit({ ...base, type: 'gossip', intensity: 0.3, public: false, gossip: { aboutEventId: choice.aboutEventId! } });
-          break;
       }
     }
   }
@@ -506,6 +644,8 @@ export class Simulation {
       this.deriveLabels(id);
       pruneMemories(getFighter(s, id), s.tick);
     }
+    // Keep a few days of full dialogue for replay; older talk lives on as memories.
+    s.dialogue = s.dialogue.filter((c) => (c.endedAt ?? s.tick) >= s.tick - DIALOGUE_DAYS * TICKS_PER_DAY);
   }
 
   /**
@@ -533,7 +673,7 @@ export class Simulation {
 
       const entry = this.providers.diarist.write(s, id, dayStart);
       // Written in the small hours about the day before.
-      if (entry) f.diary.push({ tick: dayStart + TICKS_PER_DAY - NIGHTLY_SLOT - 1, text: entry });
+      if (entry) f.diary.push({ tick: dayStart + TICKS_PER_DAY - NIGHTLY_SLOT - 1, text: entry.text, ...(entry.refs ? { refs: entry.refs } : {}) });
 
       for (const draft of this.providers.correspondent.compose(s, id)) {
         if (f.state.raisedTopics.includes(draft.topic)) continue;

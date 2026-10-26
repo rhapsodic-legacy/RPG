@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { loveTriangle, loveTriangleSchedule, Simulation, type WorldEvent } from '@rpg/sim-core';
-import { inbox, inspect, journal, narrate, readinessTable, relationshipTable } from './report';
+import { inbox, inspect, journal, narrate, readinessTable, relationshipTable, replayJournal, rhythm } from './report';
 
 const { values } = parseArgs({
   options: {
@@ -11,6 +11,8 @@ const { values } = parseArgs({
     journal: { type: 'string', multiple: true, default: [] },
     inbox: { type: 'boolean', default: false },
     compare: { type: 'boolean', default: false },
+    rhythm: { type: 'boolean', default: false },
+    talks: { type: 'string', multiple: true, default: [] },
   },
 });
 
@@ -35,7 +37,11 @@ function conflicts(events: WorldEvent[], type: 'argument' | 'brawl'): string {
   return `${total}${rooms ? ` (${rooms})` : ''}`;
 }
 
-if (values.compare) {
+if (values.rhythm) {
+  const k = values.kitchens === '2' ? 2 : 1;
+  const sim = new Simulation(loveTriangle({ kitchens: k }));
+  console.log(rhythm(sim, days, loveTriangleSchedule));
+} else if (values.compare) {
   console.log(`Comparing house layouts over ${days} days (identical fighters, identical inputs):\n`);
   for (const k of [1, 2] as const) {
     const { sim, events } = run(k);
@@ -53,6 +59,7 @@ if (values.compare) {
   console.log(relationshipTable(sim));
   console.log(readinessTable(sim));
   for (const id of values.journal) console.log(journal(sim, id));
+  for (const id of values.talks) console.log(replayJournal(sim, id));
   if (values.inbox) console.log(inbox(sim));
   for (const id of values.inspect) console.log(inspect(sim, id));
 }

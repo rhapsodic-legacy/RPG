@@ -1,7 +1,9 @@
 // Rule-based home planner: needs + temperament + who-is-where.
 
-import { isSleepTime, mealAt, mealKey } from '../../time';
-import type { Fighter, FighterId, RoomId, SimState } from '../../types';
+import { enjoys, isSleepTimeFor, peakHours, routineOf } from '../../home/routine';
+import { conversationOf, engagement, partnerIn } from '../../sim/conversation';
+import { mealAt, mealKey } from '../../time';
+import { PORTABLE_PASTIMES, type Fighter, type FighterId, type Pastime, type RoomId, type SimState } from '../../types';
 import { unit } from '../../util/math';
 import { attachment, bond, getFighter, isInjured, peekRel, roomsOfKind } from '../../world';
 import type { ActivityChoice, ActivityContext, ActivityPolicy } from '../providers';
@@ -68,7 +70,7 @@ export class RuleActivityPolicy implements ActivityPolicy {
       const infirmary = roomsOfKind(state, 'infirmary')[0];
       return { activity: 'recover', location: infirmary?.id ?? f.def.bedroomId, reason: 'injured' };
     }
-    if (isSleepTime(tick)) {
+    if (isSleepTimeFor(f, tick)) {
       return { activity: 'sleep', location: f.def.bedroomId, reason: 'night' };
     }
 
@@ -96,19 +98,48 @@ export class RuleActivityPolicy implements ActivityPolicy {
 
     for (const gym of roomsOfKind(state, 'gym')) {
       const social = roomSocialScore(ctx, gym.id);
-      const tired = n.energy < 0.3 ? 0.6 : 0;
+      const tired = 0.7 * (1 - n.energy) * (1 - n.energy);
       add(
         { activity: 'train', location: gym.id, reason: `training${social.note ? `; ${social.note}` : ''}` },
-        0.3 + 0.3 * unit(t.discipline) + 0.2 * n.energy - tired + social.score,
+        0.3 + 0.3 * unit(t.discipline) + 0.2 * n.energy - tired + peakHours(f, tick) + social.score,
       );
     }
     for (const common of roomsOfKind(state, 'common')) {
       const social = roomSocialScore(ctx, common.id);
       add(
         { activity: 'socialize', location: common.id, reason: `hanging out${social.note ? `; ${social.note}` : ''}` },
-        0.15 + (1 - n.social) * 0.7 + 0.25 * unit(t.sociability) + social.score,
+        // Hanging out is for people who enjoy company; loners meet the need other ways.
+        0.1 + (1 - n.social) * 0.7 * (0.3 + 0.7 * unit(t.sociability)) + 0.15 * unit(t.sociability) + social.score,
       );
     }
+    // Pastimes: wherever they're on offer — and books and music go wherever you do,
+    // including the room where someone you like happens to spend their evenings.
+    const pastimes = routineOf(f).pastimes;
+    for (const p of Object.keys(pastimes).sort() as Pastime[]) {
+      const love = enjoys(f, p);
+      if (love < 0.2) continue;
+      const portable = PORTABLE_PASTIMES.includes(p);
+      const rooms = state.layout.rooms.filter(
+        (r) => r.amenities?.includes(p) || (portable && (r.kind === 'common' || r.id === f.def.bedroomId)),
+      );
+      for (const room of rooms) {
+        const social = roomSocialScore(ctx, room.id);
+        // Alone with a book in your own room is its own pleasure for the unsociable.
+        const solitude = room.id === f.def.bedroomId ? 0.15 * (1 - unit(t.sociability)) : 0;
+        add(
+          { activity: 'pastime', location: room.id, pastime: p, reason: `${p}${social.note ? `; ${social.note}` : ''}` },
+          0.05 + love * (0.25 + 0.6 * (1 - n.fun)) + solitude + social.score,
+        );
+      }
+    }
+
+    // Mid-conversation: keep talking, if that still beats everything else.
+    const convo = conversationOf(state, id);
+    if (convo) {
+      const other = partnerIn(convo, id);
+      add({ activity: 'talk', location: convo.location, reason: `talking with ${other}` }, engagement(state, id, other, convo.kind));
+    }
+
     add(
       { activity: 'relax', location: f.def.bedroomId, reason: 'time alone' },
       0.1 + (1 - n.comfort) * 0.5 + (1 - n.energy) * 0.3 + 0.2 * (1 - unit(t.sociability)) + f.state.mood.sadness * 0.3,
@@ -129,6 +160,6 @@ export class RuleActivityPolicy implements ActivityPolicy {
 
     let best = 0;
     for (let i = 1; i < options.length; i++) if (utilities[i]! > utilities[best]!) best = i;
-    return options[best]!;
+    return { ...options[best]!, utility: utilities[best]! };
   }
 }

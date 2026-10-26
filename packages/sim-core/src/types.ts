@@ -26,6 +26,21 @@ export interface Room {
   name: string;
   /** 0..1, how pleasant the room is (bedrooms: how well you sleep). Default 0.5. */
   comfort?: number;
+  /** Pastimes the room offers (a TV, a billiards table, shelves of books…). */
+  amenities?: Pastime[];
+}
+
+export type Pastime = 'tv' | 'reading' | 'billiards' | 'music' | 'gaming' | 'golf';
+
+/** Pastimes you can take anywhere there's a seat. */
+export const PORTABLE_PASTIMES: readonly Pastime[] = ['reading', 'music'];
+
+/** A fighter's own rhythm: when they come alive, and what they like doing. */
+export interface Routine {
+  /** -1 early bird … 0 … +1 night owl. */
+  chronotype: number;
+  /** How much they enjoy each pastime, 0..1. */
+  pastimes: Partial<Record<Pastime, number>>;
 }
 
 export interface HouseLayout {
@@ -46,6 +61,8 @@ export interface FighterDef {
   temperament: Temperament;
   skills: { cooking: number };
   bedroomId: RoomId;
+  /** If absent, derived from temperament. */
+  routine?: Routine;
 }
 
 /** Need satisfaction, 0 = desperate, 1 = fully satisfied. */
@@ -54,9 +71,11 @@ export interface Needs {
   energy: number;
   social: number;
   comfort: number;
+  /** Enjoyment: topped up by pastimes and good company. */
+  fun: number;
 }
 
-export type Activity = 'sleep' | 'eat' | 'cook' | 'train' | 'socialize' | 'relax' | 'recover' | 'visit';
+export type Activity = 'sleep' | 'eat' | 'cook' | 'train' | 'socialize' | 'relax' | 'recover' | 'visit' | 'talk' | 'pastime';
 
 export type RelLabel =
   | 'friend'
@@ -151,6 +170,32 @@ export interface Intent {
 export interface DiaryEntry {
   tick: Tick;
   text: string;
+  /** Conversations this entry is about, for replaying them. */
+  refs?: string[];
+}
+
+export type ConversationKind = 'chat' | 'flirt' | 'comfort' | 'gossip';
+
+export interface Turn {
+  tick: Tick;
+  speaker: FighterId;
+  text: string;
+  /** This line shared news or feelings (as opposed to small talk). */
+  shared?: boolean;
+}
+
+/** A conversation is something two people are doing together, for as long as both want to. */
+export interface Conversation {
+  id: string;
+  participants: [FighterId, FighterId];
+  kind: ConversationKind;
+  location: RoomId;
+  startedAt: Tick;
+  endedAt?: Tick;
+  endedBy?: FighterId;
+  /** The other person said "not now" and it never got going. */
+  declined?: boolean;
+  turns: Turn[];
 }
 
 export type SuggestionKind = 'build_room' | 'second_kitchen' | 'separate_schedules' | 'change_cook' | 'talk_to';
@@ -176,6 +221,14 @@ export interface Message {
 export interface FighterState {
   location: RoomId;
   activity: Activity;
+  /** What they're doing for fun, when activity is 'pastime'. */
+  pastime: Pastime | null;
+  /** The conversation they're in, if any. */
+  conversation: string | null;
+  /** How much they want what they're doing right now — what talking has to beat. */
+  engrossed: number;
+  /** Things already told to each person (memory ids), so there's only so much to say. */
+  told: Record<FighterId, string[]>;
   needs: Needs;
   mood: EmotionVector;
   injuredUntil: Tick | null;
@@ -229,7 +282,8 @@ export type EventType =
   | 'speech'
   | 'match_result'
   | 'knockout'
-  | 'rescue';
+  | 'rescue'
+  | 'shared_pastime';
 
 export interface UtteranceIntent {
   kind: 'encourage' | 'praise' | 'criticize' | 'command' | 'reassure' | 'question';
@@ -270,6 +324,10 @@ export interface WorldEvent {
   speech?: { kind: SpeechKind; text: string; about?: FighterId; to?: FighterId };
   match?: { sides: [FighterId[], FighterId[]]; winningSide: 0 | 1 | null; method: string; fightId: string };
   rescue?: { from: FighterId };
+  /** For romance_start: whether the one asked said yes. */
+  romance?: { accepted: boolean };
+  /** Part of a conversation: its opening, a stretch of it, or a brush-off. */
+  conversation?: { id: string; part: 'opening' | 'continuing' | 'brushed_off' };
   injury?: { days: number; cause: string };
   utterance?: {
     text: string;
@@ -322,6 +380,11 @@ export interface SimState {
   chemistry: Record<string, number>;
   events: WorldEvent[];
   inbox: Message[];
+  /** Conversations in progress. */
+  conversations: Conversation[];
+  /** Finished conversations from the last few days, kept so they can be replayed. */
+  dialogue: Conversation[];
+  nextConversationId: number;
   nextEventId: number;
   nextMemoryId: number;
   cooldowns: Record<string, Tick>;

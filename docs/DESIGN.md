@@ -428,6 +428,23 @@ their history. So the hooks are built in from day one, not retrofitted:
 
 ---
 
+### 5a. Conversations and daily rhythm (implemented, first pass)
+
+- A conversation is something two people do together for as long as both would rather keep
+  talking than do anything else. Nothing counts minutes: wanting company (a need that only
+  real conversation satisfies), who it's with (fondness, attraction), and having something to
+  say (news the other doesn't know, feelings to get off your chest, a shared pastime) keep it
+  going; hunger, a good book, the TV, training or bed end it.
+- You only start a conversation if it beats what you're doing; the other only joins if it
+  beats what *they're* doing. Brush-offs are remembered ("they just told me they're busy");
+  considerate people read the room before interrupting; pushy chatterboxes don't.
+- Every line is recorded (template text now — the `Conversationalist` seam is for an LLM);
+  three days are kept, and journal lines link to the conversation behind them.
+- Everyone has a rhythm: chronotype (bedtime, peak training hours), pastimes, favourite
+  rooms. Shared pastimes and sparring quietly build closeness. Who's in a room pulls on where
+  people choose to spend time (a bookworm starts reading in the billiards room where their
+  crush plays).
+
 ## 6. Arena (2.5D Brawler)
 
 ### 6.1 Geometry-driven combat

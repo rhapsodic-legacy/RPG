@@ -7,7 +7,7 @@ import { unit } from '../../util/math';
 import { headToHead, perceivedEdge } from '../../combat/records';
 import { grudge } from '../../combat/talk';
 import { getFighter, nameOf, partnerOf, peekRel, roomsOfKind } from '../../world';
-import type { Correspondent, Diarist, MessageDraft } from '../providers';
+import type { Correspondent, Diarist, DiaryDraft, MessageDraft } from '../providers';
 import { beliefText } from './narrator';
 
 function namesList(names: string[]): string {
@@ -22,7 +22,7 @@ function eventOf(state: SimState, m: Memory) {
 export class RuleDiarist implements Diarist {
   readonly id = 'rules.diarist';
 
-  write(state: SimState, id: FighterId, since: number): string | null {
+  write(state: SimState, id: FighterId, since: number): DiaryDraft | null {
     const f = getFighter(state, id);
     const n = (x: string) => nameOf(state, x);
     const lines: string[] = [];
@@ -94,7 +94,9 @@ export class RuleDiarist implements Diarist {
       for (const [other, r] of Object.entries(f.relationships).sort(([a], [b]) => (a < b ? -1 : 1))) {
         if (other === partner || !state.fighters[other]) continue;
         if (r.attraction >= 0.45 && r.attraction >= toPartner - 0.1) {
-          lines.push(`I have strong feelings for ${n(other)} now... I hope ${n(partner)} is ok with that.`);
+          const line = `I have strong feelings for ${n(other)} now... I hope ${n(partner)} is ok with that.`;
+          // Once it's written down, it doesn't need writing every night.
+          if (!(f.diary[f.diary.length - 1]?.text ?? '').includes(line)) lines.push(line);
           break;
         }
       }
@@ -123,7 +125,32 @@ export class RuleDiarist implements Diarist {
       if (lines.length > before && lastEntry.includes(lines[lines.length - 1]!)) lines.pop();
     }
 
-    return lines.length ? lines.join(' ') : null;
+    // Conversations that mattered: long ones, and ones with a spark.
+    const refs: string[] = [];
+    const talks = [...state.dialogue, ...state.conversations]
+      .filter((c) => c.participants.includes(id) && !c.declined && (c.endedAt ?? state.tick) > since && c.turns.length > 0)
+      .map((c) => ({ c, other: c.participants[0] === id ? c.participants[1] : c.participants[0], ticks: (c.endedAt ?? state.tick) - c.startedAt }))
+      .sort((a, b) => b.ticks - a.ticks || (a.c.id < b.c.id ? -1 : 1));
+    for (const { c, other, ticks } of talks) {
+      if (lines.length >= 4) break;
+      const hours = ticks >= 4 ? `${ticks / 2} hours` : ticks >= 2 ? 'an hour' : null;
+      const att = peekRel(state, id, other).attraction;
+      const partner = partnerOf(state, id);
+      const real = c.turns.some((x) => x.shared);
+      if (att >= 0.45 && other !== partner) {
+        lines.push(`I talked to ${n(other)} today${hours ? ` for ${hours}` : ''}... ${att >= 0.6 ? 'there was definitely something there.' : 'I think there might be something there.'}`);
+        refs.push(c.id);
+      } else if (real) {
+        lines.push(`Had a real talk with ${n(other)}${hours ? ` — ${hours} of it` : ''}.`);
+        refs.push(c.id);
+      } else if (hours) {
+        lines.push(`Talked with ${n(other)} for ${hours}.`);
+        refs.push(c.id);
+      }
+    }
+
+    const unique = [...new Set(lines)];
+    return unique.length ? { text: unique.join(' '), ...(refs.length ? { refs } : {}) } : null;
   }
 }
 
