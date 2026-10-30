@@ -5,12 +5,12 @@
 | Concern | Choice | Why |
 |---|---|---|
 | Engine | **Godot 4.4** (GDScript) | Free, MIT, no royalties; great 2D/3D mix; strong UI; exports to Windows/macOS/Linux and mobile; headless mode for tests and CI. |
-| Rendering style | 3D scenes, orthographic camera | One pipeline for bay and battle; procedural modular characters; 8+ facings for free. |
+| Rendering style | Pre-rendered/painted environments + real-time 3D characters, isometric ortho camera | Backdrop fidelity of classic 2.5D, with characters that a procedural generator can actually produce. |
 | Simulation core | Pure GDScript classes (`RefCounted`), no scene/Node dependencies | Deterministic, unit-testable headless, serialisable. |
 | Content | JSON in `data/` | Moddable, diff-able, editable without code. |
 | Saves | JSON (versioned) | Human-readable, migratable. Profile save (legacy, outpost) separate from campaign saves. |
 | Tests | Built-in minimal runner (`tests/run_tests.gd`) | Zero dependencies; runs in CI with `godot --headless`. |
-| LLM | HTTP to any OpenAI-compatible endpoint (Ollama, llama.cpp, LM Studio) or a cloud API, user-configured | Local-first for privacy/cost; optional. |
+| LLM | Cloud fast models (e.g. Claude Haiku) as the primary target; any OpenAI-compatible local endpoint (Ollama, llama.cpp, LM Studio) as an alternative; user-configured | Fast cloud models are cheap and quick enough for dialogue and orchestration; local keeps it offline/private. Always optional. |
 
 Engine alternatives considered: Unity (licensing churn, heavier), Unreal (overkill for ortho 2.5D), Bevy (immature tooling/UI), web stack (weak for 3D-ish tactical + desktop distribution). Revisit only if a hard blocker appears.
 
@@ -55,6 +55,17 @@ Every place the game needs a judgement is behind an interface in `src/core/brain
 | `UniverseDirector` | Faction moves, world events, job generation, pacing | Weighted utility over faction goals | LLM "story director" proposing events from Chronicle |
 | `CrewMind` | Reactions, opinions, dialogue lines, arc triggers | Trait/value scoring + template barks | LLM dialogue in-character, grounded in memories |
 | `TacticalBrain` | Enemy (and optionally ally) unit actions | Utility AI with considerations (cover, threat, objective) | Heuristic search (expectimax/MCTS) for strong hardware; LLM for *commander intent* only, never per-move |
+
+### The Orchestrator (LLM layer)
+
+The LLM is not an in-the-moment actor. It sits *above* the brains as an **Orchestrator** that sets intent and keeps the experience holistic:
+
+- **Battle:** before/between rounds it sets each side's plan ("pin them at the gantry, flank with the two scouts, fall back if the leader drops"). The rules/search `TacticalBrain` executes moves turn by turn within that plan.
+- **Dialogue:** writes in-character lines and conversation branches grounded in the speaker's memories, relationships and the Chronicle; rules templates are the fallback.
+- **Personality:** periodically reviews a crew member's recent memories and proposes slow changes (a shifted temperament axis, a new want, an arc trigger). Rules validate the change size.
+- **Universe:** proposes faction moves and world events that tie threads together (a rival allying with a faction you wronged).
+
+Every Orchestrator output is a structured plan or proposal that the rules layer validates, with a deterministic rules fallback on timeout. Latency is hidden by asking ahead: between turns, during travel, while the player is in the bay.
 
 ### Contract for any LLM-backed brain
 1. Input: a compact, structured **context packet** built by core (state slice + relevant Chronicle events). No raw save dumps.

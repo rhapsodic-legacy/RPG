@@ -1,4 +1,4 @@
-# Outer Rim (working title)
+# Beyond the Edge
 
 A turn-based crew campaign game where the universe remembers you. Random crew, battered ship, jobs, rivals, and crews who are people rather than job slots. Retired crews become part of the world later crews explore.
 

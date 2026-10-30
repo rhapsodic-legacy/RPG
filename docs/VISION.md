@@ -1,6 +1,6 @@
-# Outer Rim — Game Design Vision
+# Beyond the Edge — Game Design Vision
 
-> Working title. "Outer Rim" is strongly associated with Star Wars; pick a final name before any public release.
+> The Edge is the visible rim of the galaxy. Seen from far enough away to take in the whole galaxy, thousands of systems beyond it can't be seen at all. That is where the crews work.
 
 ## One-line pitch
 
@@ -70,9 +70,14 @@ We do **not** reproduce any existing game's rules, tables, terminology, stat blo
 
 ## Presentation
 
-- **Bay (out of battle):** stylised 3D scene with a fixed orthographic camera → reads as 2.5D. Clickable crew, stations and ship parts.
-- **Tactical:** same tech, isometric orthographic camera over a square grid.
-- **Characters:** modular low-poly 3D models (body, head, hair, clothing, gear slots; morph targets; palette tints) → procedural "randomise" generator plus hundreds of saved presets. 3D under an ortho camera gives 8+ facing directions for free and keeps bay and battle consistent.
+Hybrid: **painted / pre-rendered environments, real-time 3D characters**, all viewed through a fixed isometric orthographic camera. This is the approach of modern isometric CRPGs that pair painted backdrops with 3D characters.
+
+- **Why not pure 2.5D sprites (classic 90s isometric):** pre-rendered sprites look great per frame, but every outfit × weapon × animation × facing is another sprite sheet. That makes a procedural "randomise" character generator impractical.
+- **Why not pure real-time 3D:** environments take far more art effort to reach the same fidelity as a painted or offline-rendered backdrop.
+- **Bay (out of battle):** high-fidelity pre-rendered/painted backdrop of the ship in its bay, with depth and collision layers so 3D crew walk behind and in front of things. Clickable crew, stations and ship parts.
+- **Tactical:** square grid. Handcrafted maps use pre-rendered backdrops; procedurally assembled maps use pre-rendered tile/prop pieces (or 3D tiles if that tests better).
+- **Characters:** modular 3D models (body, head, hair, clothing, gear slots; morph targets; palette tints), lit and shaded to match the backdrops → procedural "randomise" generator plus hundreds of saved presets. Any facing direction, any outfit, same model in bay and battle.
+- Settle the environment technique with an art test in M3 before producing content.
 - **Portraits:** high-res 2D. Library of pre-rendered portraits tagged by species/age/look so the generator can pick a fitting one; player upload; optional AI-art plugin.
 
 ## Biggest risks (and mitigations)
