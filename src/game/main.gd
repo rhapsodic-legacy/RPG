@@ -18,12 +18,16 @@ func _ready() -> void:
 
 	var lines: Array[String] = ["BEYOND THE EDGE: crew roll (seed %d)" % SEED, ""]
 	for i in CREW_SIZE:
-		var person := PersonGenerator.generate(state.new_id("p"), state.rng("people"), content)
+		# Placeholder targets until factions and NPCs exist in M1.
+		var refs := {"faction": ["halvard_syndicate", "corvan_compact"], "person": ["a_lost_sibling"]}
+		var person := PersonGenerator.generate(state.new_id("p"), state.rng("people"), content, refs, state.turn)
 		state.add_person(person)
-		var rejected := Rules.submit(state, HireCommand.new(person.id, 25))
-		lines.append("%s  values: %s  wants: %s  fears: %s%s" % [
-			person.display_name(), ", ".join(PackedStringArray(person.values)), person.wants[0], person.fears[0],
-			"" if rejected.is_empty() else "  (not hired: %s)" % rejected])
+		var rejected := Rules.submit(state, HireCommand.new(person.id, 25), ctx)
+		lines.append(PersonProfile.summary_line(person, state, content))
+		for t in person.traits:
+			lines.append("    - " + TraitRules.specific_text(t, content, state.name_of))
+		if not rejected.is_empty():
+			lines.append("    (not hired: %s)" % rejected)
 
 	while state.turn == 1:
 		flow.advance(state, ctx)

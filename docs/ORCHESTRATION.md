@@ -21,7 +21,7 @@ All state-changing purposes answer with:
 | Purpose | Asked when | Typical proposals |
 |---|---|---|
 | `universe_threads` | Start of turn / during travel | Faction moves, world events, jobs that tie threads together |
-| `personality_review` | Every few turns per person | Small temperament shifts, new wants, arc triggers (size-capped by rules) |
+| `personality_review` | Every few turns per person | `evolve_trait` (only along authored edges), `annotate_trait` (short specific details), later small temperament shifts. Context is `PersonProfile.describe()`: general layer, specifics, and `may_become` for each trait. |
 | `battle_plan` | Before battle and between rounds | Side-level intent (targets, positions, retreat condition) that the TacticalBrain executes move by move |
 | `dialogue` | Entering a conversation | Lines and branches (text is stored in state; branch effects are Commands) |
 

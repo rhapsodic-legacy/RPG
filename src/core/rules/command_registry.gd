@@ -5,6 +5,8 @@ extends RefCounted
 const KINDS := {
 	"hire": preload("res://src/core/rules/commands/hire_command.gd"),
 	"change_credits": preload("res://src/core/rules/commands/change_credits_command.gd"),
+	"evolve_trait": preload("res://src/core/rules/commands/evolve_trait_command.gd"),
+	"annotate_trait": preload("res://src/core/rules/commands/annotate_trait_command.gd"),
 }
 
 

@@ -4,10 +4,10 @@ extends RefCounted
 
 
 ## Empty string on success, otherwise the rejection reason. Nothing is changed when rejected.
-static func submit(state: GameState, cmd: Command) -> String:
+static func submit(state: GameState, cmd: Command, ctx: CampaignContext = null) -> String:
 	if cmd == null:
 		return "unknown command"
-	var reason := cmd.validate(state)
+	var reason := cmd.validate(state, ctx)
 	if reason.is_empty():
-		cmd.apply(state)
+		cmd.apply(state, ctx)
 	return reason

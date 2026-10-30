@@ -47,7 +47,9 @@ We do **not** reproduce any existing game's rules, tables, terminology, stat blo
 ### Crew personality model
 - **Temperament** — five continuous axes, each -1..+1: *Warmth* (cold ↔ warm), *Nerve* (anxious ↔ steady), *Drive* (content ↔ ambitious), *Order* (chaotic ↔ disciplined), *Candor* (guarded ↔ open).
 - **Values** — 2–3 from a list (loyalty, freedom, wealth, justice, faith, family, knowledge, glory...). Values decide how they judge your choices.
-- **Wants and fears** — concrete, story-generating goals ("pay off my debt to the Halvard syndicate", "never be left behind again").
+- **Traits (wants, fears, grudges, scars)** — two layers. On top, a short **general** form that stays stable ("fears a powerful group"). Underneath, the **specifics**: a bound target from the world (*which* syndicate), intensity, the event that caused it, and short notes. Both layers matter: the general form keeps summaries and LLM framing simple, the specifics keep the person consistent and make the world react to them.
+- **Traits evolve only along authored paths** and keep their target: "fears the Halvard Syndicate" can harden into "hates the Halvard Syndicate" or soften into "no longer fears them", never into something unrelated. Rules or an LLM may *propose* a change; only listed edges are accepted.
+- **No bespoke perks.** Traits feed a few generic channels (how events feel, morale or aggression when the target is present) that every system reads the same way. New traits are data, not code, and balance is tuned per channel instead of per perk.
 - **Mood** — short-term state, decays toward temperament baseline.
 - **Memories** — Chronicle events this person witnessed or heard about, with emotional weight and salience that decays. Memories drive dialogue and opinion.
 - **Relationships** — per pair: *Trust*, *Affection*, *Respect*, *Tension*. Changed by shared events, value conflicts and conversation.

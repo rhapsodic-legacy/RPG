@@ -27,5 +27,13 @@
   "travel": "the ship moved",
   "turn": "campaign bookkeeping",
   "victory": "victory",
-  "violence": "people were hurt or killed"
+  "violence": "people were hurt or killed",
+  "debt_paid": "a debt was settled",
+  "reunion": "people found each other again",
+  "death": "someone died",
+  "confined_spaces": "cramped, enclosed places",
+  "the_void": "open space, vacuum",
+  "losing_control": "panic, possession, being overpowered",
+  "being_left_behind": "someone was abandoned or left behind",
+  "trait": "a person's character changed"
 }

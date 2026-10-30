@@ -9,6 +9,10 @@ func _state() -> GameState:
 	return s
 
 
+func _ctx(port: OrchestratorPort) -> CampaignContext:
+	return CampaignContext.new(Content.load_default(), port)
+
+
 func _request() -> OrchestratorRequest:
 	return OrchestratorRequest.new(OrchestratorRequest.PURPOSE_UNIVERSE_THREADS, {"turn": 1}, "proposals_v1")
 
@@ -18,7 +22,7 @@ func _rules_fallback() -> Array:
 
 
 func test_no_llm_uses_rules() -> void:
-	var result := Orchestration.decide(_state(), OrchestratorPort.new(), _request(), _rules_fallback)
+	var result := Orchestration.decide(_state(), _ctx(OrchestratorPort.new()), _request(), _rules_fallback)
 	assert_eq(result.source, Orchestration.SOURCE_RULES)
 	assert_eq((result.commands[0] as ChangeCreditsCommand).reason, "rules")
 
@@ -28,7 +32,7 @@ func test_valid_proposal_is_used_and_stored() -> void:
 	var port := ScriptedOrchestrator.new()
 	port.answers_by_purpose[OrchestratorRequest.PURPOSE_UNIVERSE_THREADS] = {"proposals": [{"kind": "change_credits", "args": {"amount": -40, "reason": "toll"}}]}
 	port.submit(_request())
-	var result := Orchestration.decide(s, port, _request(), _rules_fallback)
+	var result := Orchestration.decide(s, _ctx(port), _request(), _rules_fallback)
 	assert_eq(result.source, Orchestration.SOURCE_ORCHESTRATOR)
 	assert_eq((result.commands[0] as ChangeCreditsCommand).reason, "toll")
 	assert_true(s.orchestrator_results.has(_request().key()), "answer stored in state")
@@ -39,9 +43,9 @@ func test_stored_answer_replays_after_reload_without_llm() -> void:
 	var port := ScriptedOrchestrator.new()
 	port.answers_by_purpose[OrchestratorRequest.PURPOSE_UNIVERSE_THREADS] = {"proposals": [{"kind": "change_credits", "args": {"amount": -40, "reason": "toll"}}]}
 	port.submit(_request())
-	Orchestration.decide(s, port, _request(), _rules_fallback)
+	Orchestration.decide(s, _ctx(port), _request(), _rules_fallback)
 	var reloaded := SaveCodec.decode_campaign(SaveCodec.encode_campaign(s))
-	var result := Orchestration.decide(reloaded, OrchestratorPort.new(), _request(), _rules_fallback)
+	var result := Orchestration.decide(reloaded, _ctx(OrchestratorPort.new()), _request(), _rules_fallback)
 	assert_eq(result.source, Orchestration.SOURCE_STORED)
 	assert_eq((result.commands[0] as ChangeCreditsCommand).reason, "toll")
 
@@ -53,7 +57,7 @@ func test_invalid_proposals_fall_back_to_rules() -> void:
 		{"kind": "summon_dragon"},
 	]}
 	port.submit(_request())
-	var result := Orchestration.decide(_state(), port, _request(), _rules_fallback)
+	var result := Orchestration.decide(_state(), _ctx(port), _request(), _rules_fallback)
 	assert_eq(result.source, Orchestration.SOURCE_RULES)
 	assert_eq(result.rejected.size(), 2)
 

@@ -15,6 +15,13 @@ func involves(actor_id: String) -> bool:
 	return actors.has(actor_id)
 
 
+## True if this event is about the given entity id or detail tag: as an actor, the place, a tag, or in data.refs.
+func references(id_or_tag: String) -> bool:
+	if id_or_tag.is_empty():
+		return false
+	return actors.has(id_or_tag) or place == id_or_tag or tags.has(id_or_tag) or Array(data.get("refs", [])).has(id_or_tag)
+
+
 func has_tag(tag: String) -> bool:
 	return tags.has(tag)
 

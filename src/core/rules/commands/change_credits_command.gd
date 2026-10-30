@@ -13,7 +13,7 @@ func _init(p_amount: int = 0, p_reason: String = "") -> void:
 	reason = p_reason
 
 
-func validate(state: GameState) -> String:
+func validate(state: GameState, _ctx: CampaignContext) -> String:
 	if amount == 0:
 		return "no change"
 	if state.credits + amount < 0:
@@ -21,7 +21,7 @@ func validate(state: GameState) -> String:
 	return ""
 
 
-func apply(state: GameState) -> void:
+func apply(state: GameState, _ctx: CampaignContext) -> void:
 	state.credits += amount
 	state.chronicle.record(state.turn, "credits_changed", [], "", ["money"], {"amount": amount, "reason": reason})
 

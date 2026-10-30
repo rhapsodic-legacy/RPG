@@ -31,3 +31,6 @@ Every structural piece (people, state, commands, saves, phases, taxonomy, orches
 
 ## D10 — One Person model for everyone (2026-10-30)
 Crew, NPCs, rivals and legends share `Person`, distinguished by `role`/`status`. Legends are copies keyed by `origin_campaign/person_id`, so the legacy system needs no conversion code.
+
+## D11 — Two-layer traits, authored evolution, generic channels (2026-10-30)
+Jesse's direction. Per-perk designs (one trait, one bespoke effect) don't scale or balance. Placeholder labels ("fears the cartel") are too vague alone. So each trait pairs a stable general form with world-bound specifics, changes only along authored edges that keep its target, and affects play only through a small set of generic channels. The same structure is the harness for an LLM: simple framing, granular grounding, a closed list of ways to grow.

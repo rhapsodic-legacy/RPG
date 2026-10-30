@@ -10,12 +10,12 @@ const SOURCE_RULES := "rules"
 
 ## fallback: Callable returning Array of Commands from the rules brain.
 ## Returns {"source": String, "commands": Array[Command], "rejected": Array[String]}. Commands are validated, not applied.
-static func decide(state: GameState, port: OrchestratorPort, request: OrchestratorRequest, fallback: Callable) -> Dictionary:
+static func decide(state: GameState, ctx: CampaignContext, request: OrchestratorRequest, fallback: Callable) -> Dictionary:
 	var key := request.key()
 	var source := SOURCE_STORED
 	var answer: Variant = state.orchestrator_results.get(key)
 	if answer == null:
-		answer = port.collect(key)
+		answer = ctx.orchestrator.collect(key)
 		source = SOURCE_ORCHESTRATOR
 		if answer is Dictionary:
 			state.orchestrator_results[key] = answer
@@ -24,7 +24,7 @@ static func decide(state: GameState, port: OrchestratorPort, request: Orchestrat
 	if answer is Dictionary:
 		for proposal in answer.get("proposals", []):
 			var cmd := CommandRegistry.from_dict(proposal)
-			var reason: String = "unknown command" if cmd == null else cmd.validate(state)
+			var reason: String = "unknown command" if cmd == null else cmd.validate(state, ctx)
 			if reason.is_empty():
 				commands.append(cmd)
 			else:

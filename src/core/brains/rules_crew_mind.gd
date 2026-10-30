@@ -1,20 +1,21 @@
 class_name RulesCrewMind
 extends CrewMind
-## Appraisal from personal values (data/values.json) plus temperament colouring.
+## Appraisal from personal values (data/values.json) and traits (via TraitRules channels), coloured by temperament.
 
-var _value_table: Dictionary
+var _content: Content
 
 
-func _init(value_table: Dictionary) -> void:
-	_value_table = value_table
+func _init(content: Content) -> void:
+	_content = content
 
 
 func appraise(member: Person, event: ChronicleEvent) -> float:
 	var total := 0.0
 	for value_id in member.values:
-		var cares: Dictionary = _value_table.get(value_id, {})
+		var cares: Dictionary = _content.values.get(value_id, {})
 		for tag in event.tags:
 			total += float(cares.get(tag, 0.0))
+	total += TraitRules.appraise(member, event, _content)
 	# Anxious people feel bad news harder; steady people shrug a little more.
 	if total < 0.0:
 		total *= 1.0 - member.temperament.get_axis("nerve") * 0.3

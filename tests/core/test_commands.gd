@@ -41,4 +41,4 @@ func test_registry_rejects_garbage() -> void:
 	assert_true(CommandRegistry.from_dict({"kind": "launch_nukes"}) == null)
 	assert_true(CommandRegistry.from_dict("hire") == null)
 	var cmd := CommandRegistry.from_dict({"kind": "hire", "args": "oops"})
-	assert_true(cmd != null and cmd.validate(_state()) == "unknown person", "bad args become an invalid command, not a crash")
+	assert_true(cmd != null and cmd.validate(_state(), null) == "unknown person", "bad args become an invalid command, not a crash")

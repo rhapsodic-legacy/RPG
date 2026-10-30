@@ -54,6 +54,13 @@ func get_person(id: String) -> Person:
 	return people.get(id)
 
 
+## Display name for any entity id or detail tag. Factions and places join here when they exist (M1).
+func name_of(id: String) -> String:
+	if people.has(id):
+		return (people[id] as Person).display_name()
+	return id.replace("_", " ")
+
+
 func crew() -> Array[Person]:
 	var out: Array[Person] = []
 	for id in crew_ids:

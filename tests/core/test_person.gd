@@ -55,7 +55,7 @@ func test_memories_fade_and_strong_ones_last_longer() -> void:
 
 
 func test_rules_mind_judges_by_values() -> void:
-	var mind := RulesCrewMind.new(_content().values)
+	var mind := RulesCrewMind.new(_content())
 	var loyal := Person.new()
 	loyal.values.assign(["loyalty"])
 	var mercenary := Person.new()

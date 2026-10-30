@@ -13,7 +13,7 @@ func _init(p_person_id: String = "", p_fee: int = 0) -> void:
 	fee = p_fee
 
 
-func validate(state: GameState) -> String:
+func validate(state: GameState, _ctx: CampaignContext) -> String:
 	var person := state.get_person(person_id)
 	if person == null:
 		return "unknown person"
@@ -28,7 +28,7 @@ func validate(state: GameState) -> String:
 	return ""
 
 
-func apply(state: GameState) -> void:
+func apply(state: GameState, _ctx: CampaignContext) -> void:
 	state.credits -= fee
 	state.crew_ids.append(person_id)
 	state.get_person(person_id).role = Person.ROLE_CREW

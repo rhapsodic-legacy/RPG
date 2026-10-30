@@ -35,5 +35,17 @@
     "tags": [
       "legend"
     ]
+  },
+  "trait_evolved": {
+    "doc": "actors[0]'s trait data.trait_id changed from data.from to data.to, caused by data.cause_event_id.",
+    "tags": [
+      "trait"
+    ]
+  },
+  "trait_annotated": {
+    "doc": "actors[0]'s trait data.trait_id gained a detail note.",
+    "tags": [
+      "trait"
+    ]
   }
 }

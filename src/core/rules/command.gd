@@ -7,12 +7,13 @@ var kind: String = ""
 
 
 ## Empty string when allowed, otherwise a short reason it was rejected.
-func validate(_state: GameState) -> String:
+## ctx gives access to content and brains; it may be null in narrow unit tests, so only rely on it when needed.
+func validate(_state: GameState, _ctx: CampaignContext) -> String:
 	return ""
 
 
 ## Only called after validate() passed. Record a ChronicleEvent for anything narratively meaningful.
-func apply(_state: GameState) -> void:
+func apply(_state: GameState, _ctx: CampaignContext) -> void:
 	pass
 
 

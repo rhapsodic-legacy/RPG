@@ -25,8 +25,9 @@ var faction_id: String = ""
 var origin_campaign_id: String = ""
 var temperament := Temperament.new()
 var values: Array[String] = []
-var wants: Array[String] = []
-var fears: Array[String] = []
+## Wants, fears, grudges, scars. See PersonTrait and data/trait_archetypes.json.
+var traits: Array[PersonTrait] = []
+var _next_trait: int = 0
 ## Short-term feeling, -1..+1. Drifts back toward a baseline set by temperament.
 var mood: float = 0.0
 ## Each: {"event_id": int, "weight": float (-1..1, how it felt), "salience": float (0..1, how present it is)}
@@ -37,6 +38,26 @@ var relationships: Dictionary = {}
 
 func display_name() -> String:
 	return "%s %s" % [given_name, family_name]
+
+
+func add_trait(archetype: String, target: String, intensity: float, turn: int, origin_event_id: int = 0) -> PersonTrait:
+	_next_trait += 1
+	var t := PersonTrait.new()
+	t.id = "t%d" % _next_trait
+	t.archetype = archetype
+	t.target = target
+	t.intensity = clampf(intensity, 0.0, 1.0)
+	t.since_turn = turn
+	t.origin_event_id = origin_event_id
+	traits.append(t)
+	return t
+
+
+func get_trait(trait_id: String) -> PersonTrait:
+	for t in traits:
+		if t.id == trait_id:
+			return t
+	return null
 
 
 ## Person ids are only unique within a campaign; across the profile they are qualified by origin.
@@ -89,8 +110,8 @@ func to_dict() -> Dictionary:
 		"origin_campaign_id": origin_campaign_id,
 		"temperament": temperament.to_dict(),
 		"values": Array(values),
-		"wants": Array(wants),
-		"fears": Array(fears),
+		"traits": traits.map(func(t: PersonTrait) -> Dictionary: return t.to_dict()),
+		"next_trait": _next_trait,
 		"mood": mood,
 		"memories": memories.map(func(m: Dictionary) -> Dictionary: return m.duplicate()),
 		"relationships": rels,
@@ -108,8 +129,9 @@ static func from_dict(d: Dictionary) -> Person:
 	c.origin_campaign_id = String(d.get("origin_campaign_id", ""))
 	c.temperament = Temperament.from_dict(d.get("temperament", {}))
 	c.values.assign(d.get("values", []))
-	c.wants.assign(d.get("wants", []))
-	c.fears.assign(d.get("fears", []))
+	for raw in d.get("traits", []):
+		c.traits.append(PersonTrait.from_dict(raw))
+	c._next_trait = int(d.get("next_trait", c.traits.size()))
 	c.mood = float(d.get("mood", 0.0))
 	for raw in d.get("memories", []):
 		c.memories.append({"event_id": int(raw.event_id), "weight": float(raw.weight), "salience": float(raw.salience)})
