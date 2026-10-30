@@ -1,10 +1,10 @@
-class_name CrewGenerator
+class_name PersonGenerator
 extends RefCounted
-## Rolls new people from content tables. Pure function of (rng, content).
+## Rolls new people (crew or NPC) from content tables. Pure function of (rng, content).
 
 
-static func generate(member_id: String, rng: SimRng, content: Content) -> CrewMember:
-	var c := CrewMember.new()
+static func generate(member_id: String, rng: SimRng, content: Content) -> Person:
+	var c := Person.new()
 	c.id = member_id
 	c.given_name = rng.pick(content.names.given)
 	c.family_name = rng.pick(content.names.family)

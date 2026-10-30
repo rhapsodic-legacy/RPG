@@ -9,7 +9,7 @@ func _init(value_table: Dictionary) -> void:
 	_value_table = value_table
 
 
-func appraise(member: CrewMember, event: ChronicleEvent) -> float:
+func appraise(member: Person, event: ChronicleEvent) -> float:
 	var total := 0.0
 	for value_id in member.values:
 		var cares: Dictionary = _value_table.get(value_id, {})
@@ -21,7 +21,7 @@ func appraise(member: CrewMember, event: ChronicleEvent) -> float:
 	return clampf(total, -1.0, 1.0)
 
 
-func relationship_shift(member: CrewMember, other_id: String, event: ChronicleEvent) -> Dictionary:
+func relationship_shift(member: Person, other_id: String, event: ChronicleEvent) -> Dictionary:
 	if not event.involves(other_id):
 		return {}
 	var feeling := appraise(member, event)

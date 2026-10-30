@@ -5,7 +5,8 @@ Each milestone ends with a playable or testable gate. Do not start the next mile
 ## M0 — Foundation (this commit)
 - Docs: vision, architecture, roadmap, decisions, CLAUDE.md
 - Godot project skeleton, layered folders, headless test runner, CI
-- Core primitives: `SimRng`, `Chronicle`, `CrewMember` + `Temperament`, `Relationship`, brain interfaces with rules stubs
+- Core primitives: `SimRng`, `Chronicle`, `Person` + `Temperament`, `Relationship`, brain interfaces with rules stubs
+- Full-width foundation: unified `Person`, `GameState`/`ProfileState`, Command pipeline + registry, versioned saves, turn phase machine, tag/event taxonomy, orchestration contract with test double
 - **Gate:** `godot --headless -s tests/run_tests.gd` passes in CI.
 
 ## M1 — Paper Campaign (text-only)

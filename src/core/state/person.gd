@@ -1,6 +1,16 @@
-class_name CrewMember
+class_name Person
 extends RefCounted
-## A person, not a job slot. Personality, memory and relationships live here; skills and gear come later.
+## Anyone with a mind: crew, NPCs, rivals, and retired legends from past campaigns all use this one model,
+## so a crew member can become an NPC (or a legend) without conversion. Skills and gear come later.
+
+const ROLE_CREW := "crew"
+const ROLE_NPC := "npc"
+const ROLE_LEGEND := "legend"
+
+const STATUS_ACTIVE := "active"
+const STATUS_RETIRED := "retired"
+const STATUS_DEAD := "dead"
+const STATUS_MISSING := "missing"
 
 ## Memories below this salience are forgotten on decay.
 const FORGET_THRESHOLD := 0.05
@@ -8,6 +18,11 @@ const FORGET_THRESHOLD := 0.05
 var id: String = ""
 var given_name: String = ""
 var family_name: String = ""
+var role: String = ROLE_NPC
+var status: String = STATUS_ACTIVE
+var faction_id: String = ""
+## Campaign this person first appeared in; lets legends point back to their own history.
+var origin_campaign_id: String = ""
 var temperament := Temperament.new()
 var values: Array[String] = []
 var wants: Array[String] = []
@@ -22,6 +37,11 @@ var relationships: Dictionary = {}
 
 func display_name() -> String:
 	return "%s %s" % [given_name, family_name]
+
+
+## Person ids are only unique within a campaign; across the profile they are qualified by origin.
+func id_for_profile() -> String:
+	return "%s/%s" % [origin_campaign_id, id]
 
 
 func holds_value(value_id: String) -> bool:
@@ -63,6 +83,10 @@ func to_dict() -> Dictionary:
 		"id": id,
 		"given_name": given_name,
 		"family_name": family_name,
+		"role": role,
+		"status": status,
+		"faction_id": faction_id,
+		"origin_campaign_id": origin_campaign_id,
 		"temperament": temperament.to_dict(),
 		"values": Array(values),
 		"wants": Array(wants),
@@ -73,11 +97,15 @@ func to_dict() -> Dictionary:
 	}
 
 
-static func from_dict(d: Dictionary) -> CrewMember:
-	var c := CrewMember.new()
+static func from_dict(d: Dictionary) -> Person:
+	var c := Person.new()
 	c.id = String(d.get("id", ""))
 	c.given_name = String(d.get("given_name", ""))
 	c.family_name = String(d.get("family_name", ""))
+	c.role = String(d.get("role", ROLE_NPC))
+	c.status = String(d.get("status", STATUS_ACTIVE))
+	c.faction_id = String(d.get("faction_id", ""))
+	c.origin_campaign_id = String(d.get("origin_campaign_id", ""))
 	c.temperament = Temperament.from_dict(d.get("temperament", {}))
 	c.values.assign(d.get("values", []))
 	c.wants.assign(d.get("wants", []))

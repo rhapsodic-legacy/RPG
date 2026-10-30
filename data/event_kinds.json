@@ -1,0 +1,39 @@
+{
+  "_doc": "Event taxonomy for the Chronicle. kind -> doc + default tags. Add a kind here before recording it.",
+  "turn_began": {
+    "doc": "A new campaign turn started.",
+    "tags": [
+      "turn"
+    ]
+  },
+  "crew_joined": {
+    "doc": "actors[0] joined the crew.",
+    "tags": [
+      "recruitment"
+    ]
+  },
+  "crew_left": {
+    "doc": "actors[0] left the crew. data.reason says why.",
+    "tags": [
+      "departure"
+    ]
+  },
+  "credits_changed": {
+    "doc": "Crew funds changed by data.amount for data.reason.",
+    "tags": [
+      "money"
+    ]
+  },
+  "arrived": {
+    "doc": "The ship arrived at place.",
+    "tags": [
+      "travel"
+    ]
+  },
+  "legend_retired": {
+    "doc": "actors[0] retired and became a legend of the shared universe.",
+    "tags": [
+      "legend"
+    ]
+  }
+}

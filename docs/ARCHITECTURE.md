@@ -31,8 +31,23 @@ Engine alternatives considered: Unity (licensing churn, heavier), Unreal (overki
 
 Rules:
 - `src/core` never imports from `src/game` or `src/ai`.
-- Presentation never mutates state directly; it submits **Commands**. Brains (AI or LLM) also submit Commands. One path for every change.
+- Presentation never mutates state directly; it submits **Commands**. Brains (AI or LLM) also submit Commands. One path for every change from outside the rules layer. Inside it, Commands and campaign phases are the only code that mutates state.
 - All randomness comes from `SimRng` streams seeded from the campaign seed. No `randi()` in core.
+
+## Foundation pieces (built before gameplay)
+
+These are the parts that are expensive to change later, so they exist full-width from the start and get depth over time.
+
+| Piece | Where | What it guarantees |
+|---|---|---|
+| `Person` | `core/state/person.gd` | One model for crew, NPCs, rivals and legends (`role`, `status`, `origin_campaign_id`). Retiring someone is a copy, not a conversion. |
+| `GameState` | `core/state/game_state.gd` | All campaign state in one serialisable object: people, crew, chronicle, named RNG streams, id counters, stored orchestrator answers. |
+| `ProfileState` | `core/state/profile_state.gd` | Cross-campaign data: legends, outpost, unlocks. Saved separately. |
+| Commands | `core/rules/command.gd`, `commands/`, `command_registry.gd`, `rules.gd` | `validate()` then `apply()`. Buildable from JSON so LLM proposals and replays use the same path. |
+| Saves | `core/save/save_codec.gd`, `game/save/save_store.gd` | Versioned JSON with a migration chain; atomic writes. |
+| Turn flow | `core/rules/turn_flow.gd`, `phases/` | Campaign turn as an ordered list of phases; placeholders hold slots until each is built. |
+| Content + taxonomy | `data/*.json`, `core/util/content.gd` | Tags and event kinds are declared once; `Content.validate()` catches dangling references. |
+| Orchestration | `core/orchestration/` | Ask ahead, never wait, validate, store, fall back. See `docs/ORCHESTRATION.md`. |
 
 ## The Chronicle
 
@@ -94,12 +109,14 @@ Rules-only campaigns are fully deterministic from a seed (good for tests and bug
 
 ```
 src/core/state/      data classes (crew, universe, chronicle, game state)
-src/core/rules/      commands, validation, campaign turn steps
+src/core/rules/      commands, registry, turn flow and phases, generators
+src/core/save/       versioned save encoding and migrations
+src/core/orchestration/  LLM orchestrator contract (request, port, decide)
 src/core/brains/     brain interfaces + rules implementations
 src/core/util/       SimRng and helpers
 src/ai/              optional LLM client + LLM brains
-src/game/            Godot scenes and UI
+src/game/            Godot scenes, UI, save file IO
 data/                JSON content (traits, values, factions, names, jobs)
-tests/               headless test runner + test suites
+tests/               headless test runner, suites in tests/core, test doubles in tests/fakes
 docs/                vision, architecture, roadmap, decisions
 ```

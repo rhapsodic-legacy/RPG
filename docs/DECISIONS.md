@@ -25,3 +25,9 @@ The LLM sets intent and plans (battle plans, dialogue, personality drift, univer
 
 ## D8 — Name: Beyond the Edge (2026-10-30)
 Replaces the working title "Outer Rim" (a Star Wars term). The Edge is the visible rim of the galaxy; the game happens in the systems beyond it.
+
+## D9 — Full width, shallow depth (2026-10-30)
+Every structural piece (people, state, commands, saves, phases, taxonomy, orchestration) exists and is wired end to end before gameplay depth. Later milestones add content and rule detail into existing slots instead of redesigning. Jesse's explicit priority: correct scaffolding over a quick MVP.
+
+## D10 — One Person model for everyone (2026-10-30)
+Crew, NPCs, rivals and legends share `Person`, distinguished by `role`/`status`. Legends are copies keyed by `origin_campaign/person_id`, so the legacy system needs no conversion code.

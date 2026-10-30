@@ -8,7 +8,7 @@ A turn-based crew campaign game in Godot 4 (GDScript). Read `docs/VISION.md` for
 ## Hard rules
 1. **Originality.** The game is inspired by a genre. Never copy rules, tables, stat blocks, terminology, setting, names or text from any existing game (including Five Parsecs from Home). Design every system from first principles. If a mechanic looks like a known game's table, redesign it.
 2. **Layering.** `src/core/` must not reference `src/game/`, `src/ai/`, scenes, or Nodes. Core classes extend `RefCounted` (or nothing), never `Node`.
-3. **One mutation path.** Game state changes only through Commands in `src/core/rules/`. UI, rules AI and LLM AI all submit Commands.
+3. **One mutation path.** Outside the rules layer, state changes only through `Rules.submit(state, command)`. UI, rules AI and LLM AI all submit Commands. Inside `src/core/rules/`, only Commands and campaign phases mutate state.
 4. **Determinism.** In core, all randomness comes from `SimRng` streams. Never call `randi()`, `randf()`, `Time` or `OS` from core.
 5. **Rules first.** Every brain interface in `src/core/brains/` must have a working rules implementation before any LLM/advanced one. LLM code lives in `src/ai/`, returns structured proposals, and must time out to rules.
 6. **Chronicle.** Anything narratively meaningful that happens gets a `ChronicleEvent`.
@@ -26,6 +26,15 @@ godot --headless --path . -s tests/run_tests.gd
 # Open the editor
 godot --path . -e
 ```
+In the editor: open `tests/test_scene.tscn` and press Run Current Scene to see results on screen.
+
+## Adding things
+- **New Command:** subclass `Command` in `src/core/rules/commands/`, implement validate/apply/get_args/load_args, register it in `CommandRegistry.KINDS`, test rejections leave state unchanged.
+- **New event kind or tag:** add it to `data/event_kinds.json` / `data/tags.json` first. `Content.validate()` must stay clean.
+- **New saved field:** add to `to_dict`/`from_dict`; if old saves would break, bump `SCHEMA_VERSION` and add a step in `SaveCodec._migrate_step`.
+- **New campaign phase:** subclass `CampaignPhase`, replace its placeholder in `TurnFlow.standard()`.
+- **New orchestrator purpose:** document the schema in `docs/ORCHESTRATION.md` and always pass a rules fallback.
+- **New kind of character:** don't. Use `Person` with a role.
 
 ## Conventions
 - GDScript with static typing everywhere (`var x: int`, typed arrays, return types).
