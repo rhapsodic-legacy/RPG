@@ -1,100 +1,621 @@
 {
-  "_doc": "Trait archetypes. Original content. Each trait has a short general form (stable, for summaries and LLM framing) and a specific form with one bound 'target' (a faction, person, place, or detail tag). Traits only change along 'evolves' edges and keep their target, so 'fears the Halvard Syndicate' can become 'hates the Halvard Syndicate' but never something unrelated. 'channels' are generic effects other systems read; never write one-off perks here.",
-
+  "_doc": "Trait archetypes. Original content. Two weights: 'major' traits are story traits (wants, fears, grudges) with a bound target; 'minor' traits are small quirks that only matter in combination. Each trait has a short general form and a specific form. Traits only change along 'evolves' edges and keep their target. 'channels' feed the shared dials in data/channels.json ('dial' or 'dial@condition'); never write one-off perks here. Strength budget: a minor trait's channels sum to at most 0.3 in absolute value (0.15 per entry); a major trait's to at most 1.0. 'sources' says where a trait can come from.",
   "fear_of_faction": {
-    "kind": "fear", "general": "fears a powerful group", "specific": "fears {target}",
+    "kind": "fear",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "fears a powerful group",
+    "specific": "fears {target}",
     "target": "faction",
-    "channels": { "appraisal_when_referenced": -0.6, "morale_when_present": -0.2 },
+    "channels": {
+      "appraisal@target": -0.6,
+      "morale@target": -0.2
+    },
     "evolves": [
-      { "to": "hatred_of_faction", "when": { "references_target": true, "tags_any": ["violence", "cruelty", "betrayal"], "min_intensity": 0.7 } },
-      { "to": "fear_overcome", "when": { "references_target": true, "tags_any": ["victory"] } }
+      {
+        "to": "hatred_of_faction",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "violence",
+            "cruelty",
+            "betrayal"
+          ],
+          "min_intensity": 0.7
+        }
+      },
+      {
+        "to": "fear_overcome",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "victory"
+          ]
+        }
+      }
     ]
   },
   "fear_of_person": {
-    "kind": "fear", "general": "fears someone from their past", "specific": "fears {target}",
+    "kind": "fear",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "fears someone from their past",
+    "specific": "fears {target}",
     "target": "person",
-    "channels": { "appraisal_when_referenced": -0.6, "morale_when_present": -0.3 },
+    "channels": {
+      "appraisal@target": -0.6,
+      "morale@target": -0.3
+    },
     "evolves": [
-      { "to": "hatred_of_person", "when": { "references_target": true, "tags_any": ["violence", "cruelty", "betrayal"], "min_intensity": 0.7 } },
-      { "to": "fear_overcome", "when": { "references_target": true, "tags_any": ["victory"] } }
+      {
+        "to": "hatred_of_person",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "violence",
+            "cruelty",
+            "betrayal"
+          ],
+          "min_intensity": 0.7
+        }
+      },
+      {
+        "to": "fear_overcome",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "victory"
+          ]
+        }
+      }
     ]
   },
   "fear_of_condition": {
-    "kind": "fear", "general": "has a deep-seated fear", "specific": "fears {target}",
-    "target": "detail", "options": ["confined_spaces", "the_void", "losing_control", "being_left_behind"],
-    "channels": { "appraisal_when_referenced": -0.5, "morale_when_present": -0.2 },
+    "kind": "fear",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "has a deep-seated fear",
+    "specific": "fears {target}",
+    "target": "detail",
+    "options": [
+      "confined_spaces",
+      "the_void",
+      "losing_control",
+      "being_left_behind"
+    ],
+    "channels": {
+      "appraisal@target": -0.5,
+      "morale@target": -0.2
+    },
     "evolves": [
-      { "to": "fear_overcome", "when": { "references_target": true, "tags_any": ["victory"], "min_intensity": 0.5 } }
+      {
+        "to": "fear_overcome",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "victory"
+          ],
+          "min_intensity": 0.5
+        }
+      }
     ]
   },
   "fear_overcome": {
-    "kind": "past", "general": "has faced down a fear", "specific": "no longer fears {target}",
+    "kind": "past",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "has faced down a fear",
+    "specific": "no longer fears {target}",
     "target": "any",
-    "channels": { "morale_when_present": 0.1 },
+    "channels": {
+      "morale@target": 0.1
+    },
     "evolves": []
   },
-
   "hatred_of_faction": {
-    "kind": "grudge", "general": "holds a bitter grudge", "specific": "hates {target}",
+    "kind": "grudge",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "holds a bitter grudge",
+    "specific": "hates {target}",
     "target": "faction",
-    "channels": { "appraisal_when_referenced": -0.8, "aggression_when_present": 0.3 },
+    "channels": {
+      "appraisal@target": -0.8,
+      "aggression@target": 0.2
+    },
     "evolves": [
-      { "to": "revenge_on_faction", "when": { "references_target": true, "tags_any": ["violence"], "min_intensity": 0.9 } }
+      {
+        "to": "revenge_on_faction",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "violence"
+          ],
+          "min_intensity": 0.9
+        }
+      }
     ]
   },
   "hatred_of_person": {
-    "kind": "grudge", "general": "holds a bitter grudge", "specific": "hates {target}",
+    "kind": "grudge",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "holds a bitter grudge",
+    "specific": "hates {target}",
     "target": "person",
-    "channels": { "appraisal_when_referenced": -0.8, "aggression_when_present": 0.4 },
+    "channels": {
+      "appraisal@target": -0.8,
+      "aggression@target": 0.2
+    },
     "evolves": []
   },
   "revenge_on_faction": {
-    "kind": "want", "general": "is set on revenge", "specific": "wants revenge on {target}",
+    "kind": "want",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "is set on revenge",
+    "specific": "wants revenge on {target}",
     "target": "faction",
-    "channels": { "appraisal_when_referenced": -0.5, "aggression_when_present": 0.5 },
+    "channels": {
+      "appraisal@target": -0.5,
+      "aggression@target": 0.5
+    },
     "evolves": []
   },
-
   "want_clear_debt": {
-    "kind": "want", "general": "owes a dangerous debt", "specific": "must clear a debt to {target}",
+    "kind": "want",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "owes a dangerous debt",
+    "specific": "must clear a debt to {target}",
     "target": "faction",
-    "channels": { "appraisal_when_referenced": -0.3, "appraisal_tag:big_payday": 0.3 },
+    "channels": {
+      "appraisal@target": -0.3,
+      "appraisal@big_payday": 0.3
+    },
     "evolves": [
-      { "to": "debt_cleared", "when": { "references_target": true, "tags_any": ["debt_paid"] } },
-      { "to": "hatred_of_faction", "when": { "references_target": true, "tags_any": ["betrayal", "cruelty"], "min_intensity": 0.6 } }
+      {
+        "to": "debt_cleared",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "debt_paid"
+          ]
+        }
+      },
+      {
+        "to": "hatred_of_faction",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "betrayal",
+            "cruelty"
+          ],
+          "min_intensity": 0.6
+        }
+      }
     ]
   },
   "debt_cleared": {
-    "kind": "past", "general": "has paid off an old debt", "specific": "has paid off {target}",
+    "kind": "past",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "has paid off an old debt",
+    "specific": "has paid off {target}",
     "target": "faction",
     "channels": {},
     "evolves": []
   },
   "want_find_person": {
-    "kind": "want", "general": "is searching for someone", "specific": "is searching for {target}",
+    "kind": "want",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "is searching for someone",
+    "specific": "is searching for {target}",
     "target": "person",
-    "channels": { "appraisal_when_referenced": 0.6 },
+    "channels": {
+      "appraisal@target": 0.6
+    },
     "evolves": [
-      { "to": "reunited", "when": { "references_target": true, "tags_any": ["reunion"] } },
-      { "to": "grieving", "when": { "references_target": true, "tags_any": ["death"] } }
+      {
+        "to": "reunited",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "reunion"
+          ]
+        }
+      },
+      {
+        "to": "grieving",
+        "when": {
+          "references_target": true,
+          "tags_any": [
+            "death"
+          ]
+        }
+      }
     ]
   },
   "reunited": {
-    "kind": "past", "general": "found the person they were looking for", "specific": "found {target}",
+    "kind": "past",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "found the person they were looking for",
+    "specific": "found {target}",
     "target": "person",
-    "channels": { "appraisal_when_referenced": 0.4 },
+    "channels": {
+      "appraisal@target": 0.4
+    },
     "evolves": []
   },
   "grieving": {
-    "kind": "scar", "general": "is grieving", "specific": "is grieving {target}",
+    "kind": "scar",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "is grieving",
+    "specific": "is grieving {target}",
     "target": "person",
-    "channels": { "appraisal_when_referenced": -0.4, "morale_when_present": -0.1 },
+    "channels": {
+      "appraisal@target": -0.4,
+      "morale@target": -0.1
+    },
     "evolves": []
   },
   "want_own_ship": {
-    "kind": "want", "general": "dreams of their own ship", "specific": "dreams of owning a ship",
+    "kind": "want",
+    "weight": "major",
+    "sources": [
+      "backstory",
+      "world",
+      "battle",
+      "relationship"
+    ],
+    "general": "dreams of their own ship",
+    "specific": "dreams of owning a ship",
     "target": "none",
-    "channels": { "appraisal_tag:big_payday": 0.3 },
+    "channels": {
+      "appraisal@big_payday": 0.3
+    },
+    "evolves": []
+  },
+  "raised_on_a_mining_rig": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "birth"
+    ],
+    "general": "grew up hard",
+    "specific": "grew up on a mining rig",
+    "target": "none",
+    "channels": {
+      "tech": 0.1,
+      "composure@confined_spaces": 0.1
+    },
+    "evolves": []
+  },
+  "spacer_born": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "birth"
+    ],
+    "general": "was born between stars",
+    "specific": "was born aboard a long-haul freighter",
+    "target": "none",
+    "channels": {
+      "piloting": 0.1,
+      "stamina": -0.05
+    },
+    "evolves": []
+  },
+  "frontier_childhood": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "birth"
+    ],
+    "general": "grew up rough",
+    "specific": "grew up on a frontier homestead",
+    "target": "none",
+    "channels": {
+      "stamina": 0.1,
+      "persuasion": -0.05
+    },
+    "evolves": []
+  },
+  "comfortable_upbringing": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "birth"
+    ],
+    "general": "grew up comfortable",
+    "specific": "grew up in a well-off core-world family",
+    "target": "none",
+    "channels": {
+      "persuasion": 0.1,
+      "stamina": -0.05
+    },
+    "evolves": []
+  },
+  "ex_dockworker": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "backstory"
+    ],
+    "general": "knows hard work",
+    "specific": "spent years loading freight on the docks",
+    "target": "none",
+    "channels": {
+      "stamina": 0.1,
+      "tech": 0.05
+    },
+    "evolves": []
+  },
+  "field_medic_training": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "backstory"
+    ],
+    "general": "has some medical training",
+    "specific": "trained as a field medic",
+    "target": "none",
+    "channels": {
+      "medicine": 0.15
+    },
+    "evolves": []
+  },
+  "card_sharp": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "backstory"
+    ],
+    "general": "is good at reading people",
+    "specific": "made a living at card tables",
+    "target": "none",
+    "channels": {
+      "persuasion": 0.1,
+      "composure": 0.05
+    },
+    "evolves": []
+  },
+  "old_shoulder_wound": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "battle"
+    ],
+    "general": "carries an old injury",
+    "specific": "has a shoulder that never healed right",
+    "target": "none",
+    "channels": {
+      "accuracy": -0.05,
+      "stamina": -0.05
+    },
+    "evolves": []
+  },
+  "steady_under_fire": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "battle"
+    ],
+    "general": "keeps their head",
+    "specific": "has been shot at enough to stay calm",
+    "target": "none",
+    "channels": {
+      "composure": 0.15
+    },
+    "evolves": []
+  },
+  "twitchy_trigger": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "battle"
+    ],
+    "general": "is quick on the draw",
+    "specific": "shoots first and checks later",
+    "target": "none",
+    "channels": {
+      "initiative": 0.1,
+      "accuracy": -0.05
+    },
+    "evolves": []
+  },
+  "survived_a_hull_breach": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "battle"
+    ],
+    "general": "has been through a breach",
+    "specific": "survived a hull breach",
+    "target": "none",
+    "channels": {
+      "composure@the_void": 0.15,
+      "morale@the_void": -0.05
+    },
+    "evolves": []
+  },
+  "light_sleeper": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "ship_life"
+    ],
+    "general": "sleeps lightly",
+    "specific": "wakes at every clank of the hull",
+    "target": "none",
+    "channels": {
+      "initiative": 0.1,
+      "stamina": -0.05
+    },
+    "evolves": [
+      {
+        "to": "insomniac",
+        "when": {
+          "tags_any": [
+            "death",
+            "violence"
+          ],
+          "min_intensity": 0.6
+        }
+      }
+    ]
+  },
+  "insomniac": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "ship_life"
+    ],
+    "general": "barely sleeps",
+    "specific": "hasn't slept properly since a bad job",
+    "target": "none",
+    "channels": {
+      "initiative": 0.05,
+      "stamina": -0.15,
+      "composure": -0.05
+    },
+    "evolves": []
+  },
+  "tinkers_at_night": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "ship_life"
+    ],
+    "general": "is always fixing something",
+    "specific": "spends off-shifts taking the ship apart and putting it back",
+    "target": "none",
+    "channels": {
+      "tech": 0.1,
+      "stamina": -0.05
+    },
+    "evolves": []
+  },
+  "keeps_a_journal": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "ship_life"
+    ],
+    "general": "writes things down",
+    "specific": "keeps a battered paper journal",
+    "target": "none",
+    "channels": {
+      "composure": 0.05,
+      "morale": 0.05
+    },
+    "evolves": []
+  },
+  "galley_cook": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "ship_life"
+    ],
+    "general": "feeds the crew",
+    "specific": "cooks for everyone when there's time",
+    "target": "none",
+    "channels": {
+      "crew_morale": 0.1
+    },
+    "evolves": []
+  },
+  "protective_of_crewmates": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "relationship"
+    ],
+    "general": "looks out for others",
+    "specific": "can't stand seeing a crewmate hurt",
+    "target": "none",
+    "channels": {
+      "aggression@ally_down": 0.1,
+      "composure@ally_down": -0.05
+    },
+    "evolves": []
+  },
+  "lone_wolf": {
+    "kind": "quirk",
+    "weight": "minor",
+    "sources": [
+      "relationship"
+    ],
+    "general": "keeps to themselves",
+    "specific": "eats alone and likes it",
+    "target": "none",
+    "channels": {
+      "initiative": 0.05,
+      "crew_morale": -0.05
+    },
     "evolves": []
   }
 }

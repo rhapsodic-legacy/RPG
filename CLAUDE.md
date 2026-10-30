@@ -13,7 +13,7 @@ A turn-based crew campaign game in Godot 4 (GDScript). Read `docs/VISION.md` for
 5. **Rules first.** Every brain interface in `src/core/brains/` must have a working rules implementation before any LLM/advanced one. LLM code lives in `src/ai/`, returns structured proposals, and must time out to rules.
 6. **Chronicle.** Anything narratively meaningful that happens gets a `ChronicleEvent`.
 7. **Serialisable.** Every state class has `to_dict()` and `static from_dict()`; round-trip is tested.
-8. **No bespoke perks.** Traits affect play only through the generic channels listed in `Content.CHANNELS`. A trait that needs custom code is a design smell; add a channel instead, deliberately.
+8. **Many small variables, no bespoke perks.** Traits affect play only through the shared dials in `data/channels.json` (`dial` or `dial@condition`), soft-capped per dial. Most traits are minor quirks inside a strength budget; character comes from combinations. A trait that needs custom code is a design smell; add a dial instead, deliberately.
 9. **Stay in milestone.** Check `docs/ROADMAP.md`; don't build later-milestone features unless asked.
 
 ## Commands
@@ -36,7 +36,8 @@ In the editor: open `tests/test_scene.tscn` and press Run Current Scene to see r
 - **New campaign phase:** subclass `CampaignPhase`, replace its placeholder in `TurnFlow.standard()`.
 - **New orchestrator purpose:** document the schema in `docs/ORCHESTRATION.md` and always pass a rules fallback.
 - **New kind of character:** don't. Use `Person` with a role.
-- **New trait:** add an archetype to `data/trait_archetypes.json` with general + specific text, target type, channels and evolves edges. Edges must keep the target type.
+- **New trait:** add an archetype to `data/trait_archetypes.json` with weight (minor/major), sources, general + specific text, target type, channels and evolves edges. Edges must keep the target type; `Content.validate()` enforces the strength budget.
+- **New system that reads character:** read dials through `TraitRules.channel()` / `group_channel()`, never by checking for a specific trait id.
 
 ## Conventions
 - GDScript with static typing everywhere (`var x: int`, typed arrays, return types).

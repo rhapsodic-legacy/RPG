@@ -12,6 +12,8 @@ var target: String = ""
 ## 0..1, how strongly it is felt. Rises as events touch the target.
 var intensity: float = 0.5
 var since_turn: int = 0
+## Where it came from: birth, backstory, world, battle, ship_life, relationship (Content.TRAIT_SOURCES).
+var source: String = ""
 ## Chronicle event that created it (0 = backstory).
 var origin_event_id: int = 0
 ## Earlier archetypes this trait evolved from, oldest first.
@@ -27,6 +29,7 @@ func to_dict() -> Dictionary:
 		"target": target,
 		"intensity": intensity,
 		"since_turn": since_turn,
+		"source": source,
 		"origin_event_id": origin_event_id,
 		"lineage": Array(lineage),
 		"notes": Array(notes),
@@ -40,6 +43,7 @@ static func from_dict(d: Dictionary) -> PersonTrait:
 	t.target = String(d.get("target", ""))
 	t.intensity = clampf(float(d.get("intensity", 0.5)), 0.0, 1.0)
 	t.since_turn = int(d.get("since_turn", 0))
+	t.source = String(d.get("source", ""))
 	t.origin_event_id = int(d.get("origin_event_id", 0))
 	t.lineage.assign(d.get("lineage", []))
 	t.notes.assign(d.get("notes", []))

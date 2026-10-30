@@ -34,3 +34,6 @@ Crew, NPCs, rivals and legends share `Person`, distinguished by `role`/`status`.
 
 ## D11 — Two-layer traits, authored evolution, generic channels (2026-10-30)
 Jesse's direction. Per-perk designs (one trait, one bespoke effect) don't scale or balance. Placeholder labels ("fears the cartel") are too vague alone. So each trait pairs a stable general form with world-bound specifics, changes only along authored edges that keep its target, and affects play only through a small set of generic channels. The same structure is the harness for an LLM: simple framing, granular grounding, a closed list of ways to grow.
+
+## D12 — Many small traits feeding soft-capped dials (2026-10-30)
+Jesse's direction: variation and balance come from a thousand small variables that larger systems draw on (like a grand-strategy general's accumulated traits), not from a few strong perks that produce dominant builds. Most traits are minor quirks with a strength budget enforced by `Content.validate()`; all effects go through shared dials (optionally conditional), each soft-capped so stacks approach but never exceed a cap. Traits come from birth, backstory, world, battle, relationships and ship life, so life aboard feeds mission performance.

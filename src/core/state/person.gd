@@ -40,7 +40,7 @@ func display_name() -> String:
 	return "%s %s" % [given_name, family_name]
 
 
-func add_trait(archetype: String, target: String, intensity: float, turn: int, origin_event_id: int = 0) -> PersonTrait:
+func add_trait(archetype: String, target: String, intensity: float, turn: int, origin_event_id: int = 0, source: String = "") -> PersonTrait:
 	_next_trait += 1
 	var t := PersonTrait.new()
 	t.id = "t%d" % _next_trait
@@ -49,8 +49,13 @@ func add_trait(archetype: String, target: String, intensity: float, turn: int, o
 	t.intensity = clampf(intensity, 0.0, 1.0)
 	t.since_turn = turn
 	t.origin_event_id = origin_event_id
+	t.source = source
 	traits.append(t)
 	return t
+
+
+func has_archetype(archetype: String) -> bool:
+	return traits.any(func(t: PersonTrait) -> bool: return t.archetype == archetype)
 
 
 func get_trait(trait_id: String) -> PersonTrait:

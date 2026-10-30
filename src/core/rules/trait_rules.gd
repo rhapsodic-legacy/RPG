@@ -6,30 +6,47 @@ extends RefCounted
 const INTENSITY_GAIN := 0.25
 
 
-## Sum of a channel across the person's traits, each scaled by intensity.
-## present_ids: entity ids/tags present in the situation (for *_when_present channels).
-static func channel(person: Person, channel_id: String, content: Content, present_ids: Array = []) -> float:
+## A dial's total for this person in a situation, soft-capped: cap * tanh(sum / cap).
+## Many small traits add up, but no stack runs away, and no single trait decides the outcome.
+## situation: entity ids and tags present (a mission map, a conversation, a bay event).
+static func channel(person: Person, dial: String, content: Content, situation: Array = []) -> float:
+	var raw := raw_channel(person, dial, content, func(id: String) -> bool: return situation.has(id))
+	var cap := content.dial_cap(dial)
+	return cap * tanh(raw / cap)
+
+
+## Uncapped sum. is_present: Callable(id_or_tag) -> bool decides conditional entries.
+static func raw_channel(person: Person, dial: String, content: Content, is_present: Callable) -> float:
 	var total := 0.0
 	for t in person.traits:
-		var channels: Dictionary = content.archetype(t.archetype).get("channels", {})
-		if not channels.has(channel_id):
-			continue
-		if channel_id.ends_with("_when_present") and not present_ids.has(t.target):
-			continue
-		total += float(channels[channel_id]) * t.intensity
+		var entries: Dictionary = content.archetype(t.archetype).get("channels", {})
+		for key in entries:
+			var parsed := Content.parse_channel_key(key)
+			if parsed.dial != dial:
+				continue
+			var condition: String = parsed.condition
+			if condition == "target":
+				condition = t.target
+				if condition.is_empty():
+					continue
+			if not condition.is_empty() and not is_present.call(condition):
+				continue
+			total += float(entries[key]) * t.intensity
 	return total
 
 
-## How the person's traits colour an event, -1..1 before clamping by the caller.
+## How the person's traits colour an event. Conditions match what the event references. Caller clamps.
 static func appraise(person: Person, event: ChronicleEvent, content: Content) -> float:
-	var total := 0.0
-	for t in person.traits:
-		var channels: Dictionary = content.archetype(t.archetype).get("channels", {})
-		if event.references(t.target):
-			total += float(channels.get("appraisal_when_referenced", 0.0)) * t.intensity
-		for tag in event.tags:
-			total += float(channels.get("appraisal_tag:" + tag, 0.0)) * t.intensity
-	return total
+	return raw_channel(person, "appraisal", content, event.references)
+
+
+## Sum of a dial across a group, e.g. crew_morale aboard the ship, soft-capped once for the group.
+static func group_channel(people: Array, dial: String, content: Content, situation: Array = []) -> float:
+	var raw := 0.0
+	for p in people:
+		raw += raw_channel(p, dial, content, func(id: String) -> bool: return situation.has(id))
+	var cap := content.dial_cap(dial)
+	return cap * tanh(raw / cap)
 
 
 ## Rules-layer reaction: events that touch a trait's target make it felt more strongly.

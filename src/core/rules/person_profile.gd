@@ -13,6 +13,8 @@ static func describe(person: Person, state: GameState, content: Content) -> Dict
 		traits_out.append({
 			"id": t.id,
 			"kind": content.archetype(t.archetype).get("kind", ""),
+			"weight": content.archetype(t.archetype).get("weight", ""),
+			"source": t.source,
 			"general": TraitRules.general_text(t, content),
 			"specific": TraitRules.specific_text(t, content, name_of),
 			"intensity": snappedf(t.intensity, 0.01),
@@ -37,11 +39,12 @@ static func describe(person: Person, state: GameState, content: Content) -> Dict
 	}
 
 
-## One sentence, general layer only: "Ilse Varrow values loyalty and justice; fears a powerful group; owes a dangerous debt."
+## One sentence, general layer of major traits only (quirks would crowd it): "Ilse Varrow values loyalty and justice; fears a powerful group; owes a dangerous debt."
 static func summary_line(person: Person, _state: GameState, content: Content) -> String:
 	var parts: Array[String] = []
 	if not person.values.is_empty():
 		parts.append("values " + " and ".join(PackedStringArray(person.values)))
 	for t in person.traits:
-		parts.append(TraitRules.general_text(t, content))
+		if content.archetype(t.archetype).get("weight") == "major":
+			parts.append(TraitRules.general_text(t, content))
 	return "%s %s." % [person.display_name(), "; ".join(PackedStringArray(parts))]

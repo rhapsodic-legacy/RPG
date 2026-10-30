@@ -41,7 +41,8 @@ These are the parts that are expensive to change later, so they exist full-width
 | Piece | Where | What it guarantees |
 |---|---|---|
 | `Person` | `core/state/person.gd` | One model for crew, NPCs, rivals and legends (`role`, `status`, `origin_campaign_id`). Retiring someone is a copy, not a conversion. |
-| Traits | `core/state/person_trait.gd`, `core/rules/trait_rules.gd`, `data/trait_archetypes.json` | Two layers (general text + bound target, intensity, origin, notes), evolution only along authored edges, effects only through generic channels. |
+| Traits | `core/state/person_trait.gd`, `core/rules/trait_rules.gd`, `data/trait_archetypes.json` | Two layers (general text + bound target, intensity, origin, source, notes); minor quirks and major story traits under a strength budget; evolution only along authored edges. |
+| Dials | `data/channels.json`, `TraitRules.channel()` / `group_channel()` | The only way traits affect play. `dial` or `dial@condition`, soft-capped per dial (cap · tanh(sum / cap)). Mission, mind and social domains. |
 | `PersonProfile` | `core/rules/person_profile.gd` | A person described general-first with specifics and allowed growth; the context packet for dialogue and the orchestrator. |
 | `GameState` | `core/state/game_state.gd` | All campaign state in one serialisable object: people, crew, chronicle, named RNG streams, id counters, stored orchestrator answers. |
 | `ProfileState` | `core/state/profile_state.gd` | Cross-campaign data: legends, outpost, unlocks. Saved separately. |

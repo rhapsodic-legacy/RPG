@@ -38,8 +38,8 @@ func test_present_channels_need_target_present() -> void:
 	var s := _state_with_fearful_person(1.0)
 	var person := s.get_person("p_1")
 	var content := Content.load_default()
-	assert_almost(TraitRules.channel(person, "morale_when_present", content, ["halvard_syndicate"]), -0.2)
-	assert_almost(TraitRules.channel(person, "morale_when_present", content, ["someone_else"]), 0.0)
+	assert_almost(TraitRules.channel(person, "morale", content, ["halvard_syndicate"]), -0.2, 0.01)
+	assert_almost(TraitRules.channel(person, "morale", content, ["someone_else"]), 0.0)
 
 
 func test_evolution_follows_edges_and_keeps_target() -> void:
@@ -107,3 +107,65 @@ func test_generator_only_uses_available_targets() -> void:
 		for t in p.traits:
 			var target_type: String = content.archetype(t.archetype).get("target")
 			assert_true(target_type == "detail" or target_type == "none", "no factions/people given, got " + t.archetype)
+		var quirks := p.traits.filter(func(t: PersonTrait) -> bool: return content.archetype(t.archetype).get("kind") == "quirk")
+		assert_true(quirks.size() >= PersonGenerator.STARTING_QUIRKS_MIN and quirks.size() <= PersonGenerator.STARTING_QUIRKS_MAX, "starting quirks")
+		assert_true(quirks.all(func(t: PersonTrait) -> bool: return PersonGenerator.CREATION_SOURCES.has(t.source)), "creation sources only")
+
+
+func _person_with(archetypes: Array) -> Person:
+	var p := Person.new()
+	p.id = "p_1"
+	for a in archetypes:
+		p.add_trait(a, "", 1.0, 1)
+	return p
+
+
+func test_small_traits_combine() -> void:
+	var content := Content.load_default()
+	var one := _person_with(["steady_under_fire"])
+	var two := _person_with(["steady_under_fire", "card_sharp"])
+	assert_true(TraitRules.channel(two, "composure", content) > TraitRules.channel(one, "composure", content))
+
+
+func test_stacking_is_soft_capped() -> void:
+	var content := Content.load_default()
+	var p := Person.new()
+	for i in 20:
+		p.add_trait("steady_under_fire", "", 1.0, 1)
+	var cap := content.dial_cap("composure")
+	var total := TraitRules.channel(p, "composure", content)
+	assert_true(total < cap and total > cap * 0.9, "approaches but never exceeds the cap, got %f" % total)
+
+
+func test_conditional_dials_need_their_condition() -> void:
+	var content := Content.load_default()
+	var p := _person_with(["raised_on_a_mining_rig"])
+	var open_ground := TraitRules.channel(p, "composure", content, [])
+	var tunnels := TraitRules.channel(p, "composure", content, ["confined_spaces"])
+	assert_almost(open_ground, 0.0)
+	assert_true(tunnels > 0.05)
+
+
+func test_ship_life_trait_affects_the_whole_crew() -> void:
+	var content := Content.load_default()
+	var crew := [_person_with(["galley_cook"]), _person_with(["lone_wolf"]), _person_with([])]
+	assert_true(TraitRules.group_channel(crew, "crew_morale", content) > 0.0, "a cook outweighs one loner")
+
+
+func test_quirks_evolve_too() -> void:
+	var s := GameState.create("c", 1)
+	var p := _person_with(["light_sleeper"])
+	s.add_person(p)
+	var bad_job := s.chronicle.record(1, "arrived", [], "", ["death"])
+	var proposals := TraitRules.propose_evolutions(p, bad_job, Content.load_default())
+	assert_eq(proposals.size(), 1)
+	assert_eq(Rules.submit(s, proposals[0], CampaignContext.new(Content.load_default())), "")
+	assert_eq(p.traits[0].archetype, "insomniac")
+
+
+func test_budget_rejects_an_overpowered_quirk() -> void:
+	var content := Content.load_default()
+	content.trait_archetypes["broken"] = {"kind": "quirk", "weight": "minor", "sources": ["birth"], "general": "x", "specific": "x",
+		"target": "none", "channels": {"accuracy": 0.15, "initiative": 0.15, "stealth": 0.15}, "evolves": []}
+	var problems := content.validate()
+	assert_true(problems.any(func(p: String) -> bool: return p.contains("broken") and p.contains("total budget")), str(problems))

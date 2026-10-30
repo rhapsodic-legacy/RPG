@@ -4,9 +4,10 @@ extends RefCounted
 
 ## What a trait can be about. "detail" targets are tags (e.g. confined_spaces); "any" accepts whatever it evolved from.
 const TARGET_TYPES := ["faction", "person", "place", "detail", "none", "any"]
-## Generic effect channels traits can feed. Systems read these; traits never carry bespoke perk logic.
-## Plus "appraisal_tag:<tag>" for how events with that tag feel.
-const CHANNELS := ["appraisal_when_referenced", "morale_when_present", "aggression_when_present"]
+## Where traits come from. Ship-life and relationship traits are earned aboard, between missions.
+const TRAIT_SOURCES := ["birth", "backstory", "world", "battle", "ship_life", "relationship"]
+## Strength budget per trait weight: max total |channel value|, and max per entry.
+const TRAIT_BUDGET := {"minor": {"total": 0.3, "entry": 0.15}, "major": {"total": 1.0, "entry": 0.8}}
 
 var values: Dictionary = {}
 var names: Dictionary = {}
@@ -16,6 +17,8 @@ var trait_archetypes: Dictionary = {}
 var tags: Dictionary = {}
 ## event kind -> {"doc": String, "tags": Array}. The event taxonomy; Chronicle kinds must be listed here.
 var event_kinds: Dictionary = {}
+## dial id -> {"domain", "cap", "doc"}. The shared dials traits feed; see data/channels.json.
+var channels: Dictionary = {}
 
 
 static func load_default() -> Content:
@@ -25,6 +28,7 @@ static func load_default() -> Content:
 	c.trait_archetypes = _strip_doc(_read_json("res://data/trait_archetypes.json"))
 	c.tags = _strip_doc(_read_json("res://data/tags.json"))
 	c.event_kinds = _strip_doc(_read_json("res://data/event_kinds.json"))
+	c.channels = _strip_doc(_read_json("res://data/channels.json"))
 	return c
 
 
@@ -55,10 +59,49 @@ func validate() -> Array[String]:
 			for tag in edge.get("when", {}).get("tags_any", []):
 				if not tags.has(tag):
 					problems.append("trait '%s' edge uses unknown tag '%s'" % [archetype_id, tag])
-		for channel in a.get("channels", {}):
-			if not (CHANNELS.has(channel) or (channel.begins_with("appraisal_tag:") and tags.has(channel.trim_prefix("appraisal_tag:")))):
-				problems.append("trait '%s' has unknown channel '%s'" % [archetype_id, channel])
+		problems.append_array(_validate_trait_channels(archetype_id, a))
+		var weight: String = a.get("weight", "")
+		if not TRAIT_BUDGET.has(weight):
+			problems.append("trait '%s' has unknown weight '%s'" % [archetype_id, weight])
+		var sources: Array = a.get("sources", [])
+		if sources.is_empty() or not sources.all(func(s: Variant) -> bool: return TRAIT_SOURCES.has(s)):
+			problems.append("trait '%s' has missing or unknown sources %s" % [archetype_id, str(sources)])
 	return problems
+
+
+func _validate_trait_channels(archetype_id: String, a: Dictionary) -> Array[String]:
+	var problems: Array[String] = []
+	var total := 0.0
+	var budget: Dictionary = TRAIT_BUDGET.get(a.get("weight", ""), TRAIT_BUDGET.major)
+	var entries: Dictionary = a.get("channels", {})
+	for key in entries:
+		var parsed := parse_channel_key(key)
+		if not channels.has(parsed.dial):
+			problems.append("trait '%s' uses unknown dial '%s'" % [archetype_id, parsed.dial])
+		var condition: String = parsed.condition
+		if condition == "target" and a.get("target", "") == "none":
+			problems.append("trait '%s' conditions on a target it doesn't have" % archetype_id)
+		elif not condition.is_empty() and condition != "target" and not tags.has(condition):
+			problems.append("trait '%s' conditions on unknown tag '%s'" % [archetype_id, condition])
+		var magnitude := absf(float(entries[key]))
+		total += magnitude
+		if magnitude > float(budget.entry) + 0.0001:
+			problems.append("trait '%s' entry '%s' exceeds its weight's per-entry budget" % [archetype_id, key])
+	if total > float(budget.total) + 0.0001:
+		problems.append("trait '%s' exceeds its weight's total budget (%.2f)" % [archetype_id, total])
+	return problems
+
+
+## "composure@confined_spaces" -> {"dial": "composure", "condition": "confined_spaces"}; "tech" -> condition "".
+static func parse_channel_key(key: String) -> Dictionary:
+	var at := key.find("@")
+	if at < 0:
+		return {"dial": key, "condition": ""}
+	return {"dial": key.substr(0, at), "condition": key.substr(at + 1)}
+
+
+func dial_cap(dial: String) -> float:
+	return float(channels.get(dial, {}).get("cap", 1.0))
 
 
 func archetype(archetype_id: String) -> Dictionary:

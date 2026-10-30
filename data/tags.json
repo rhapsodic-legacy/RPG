@@ -35,5 +35,6 @@
   "the_void": "open space, vacuum",
   "losing_control": "panic, possession, being overpowered",
   "being_left_behind": "someone was abandoned or left behind",
-  "trait": "a person's character changed"
+  "trait": "a person's character changed",
+  "ally_down": "a crewmate was hurt or downed"
 }

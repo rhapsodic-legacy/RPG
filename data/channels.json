@@ -1,0 +1,68 @@
+{
+  "_doc": "Shared dials that traits feed. Every system reads the same dials; no trait carries bespoke logic. Each trait entry is 'dial' (always on) or 'dial@condition' (on when the situation contains the condition: a tag, or 'target' for the trait's own target). Totals are soft-capped per dial: cap * tanh(sum / cap), so many small traits combine meaningfully but no stack runs away. 'domain' says which side of the game reads it.",
+  "appraisal": {
+    "domain": "mind",
+    "cap": 1.0,
+    "doc": "How an event feels. Conditions are matched against what the event references."
+  },
+  "morale": {
+    "domain": "mind",
+    "cap": 1.0,
+    "doc": "Own spirits; drives willingness, panic, mood."
+  },
+  "composure": {
+    "domain": "mind",
+    "cap": 0.5,
+    "doc": "Holding together under stress: suppression, fear checks, tense talks."
+  },
+  "aggression": {
+    "domain": "mind",
+    "cap": 0.5,
+    "doc": "Leaning toward violence and risk."
+  },
+  "initiative": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Acting first and reacting fast."
+  },
+  "accuracy": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Hitting what you aim at."
+  },
+  "stealth": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Not being noticed."
+  },
+  "stamina": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Endurance, recovery, carrying load."
+  },
+  "tech": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Repairs, hacking, machines."
+  },
+  "medicine": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Treating injuries, in the field and aboard."
+  },
+  "piloting": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Flying, docking, vehicles."
+  },
+  "persuasion": {
+    "domain": "mission",
+    "cap": 0.4,
+    "doc": "Talking, bargaining, lying."
+  },
+  "crew_morale": {
+    "domain": "social",
+    "cap": 0.3,
+    "doc": "Effect on everyone else aboard; summed across the crew."
+  }
+}
