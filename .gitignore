@@ -1,0 +1,6 @@
+.godot/
+.import/
+export_presets.cfg
+*.translation
+/build/
+.DS_Store

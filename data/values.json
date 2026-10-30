@@ -1,0 +1,11 @@
+{
+  "_doc": "How much each personal value cares about event tags, -1..1. Original content.",
+  "loyalty":   { "betrayal": -0.9, "rescue": 0.7, "abandon_crew": -1.0, "kept_promise": 0.5 },
+  "freedom":   { "enslavement": -1.0, "liberation": 0.8, "submit_to_authority": -0.4 },
+  "wealth":    { "big_payday": 0.7, "lost_cargo": -0.6, "charity": -0.2 },
+  "justice":   { "mercy": 0.3, "cruelty": -0.8, "liberation": 0.5, "bribe": -0.4 },
+  "family":    { "rescue": 0.6, "civilian_harm": -0.7, "kept_promise": 0.3 },
+  "knowledge": { "discovery": 0.8, "destroyed_archive": -0.9 },
+  "glory":     { "victory": 0.6, "retreat": -0.5, "renown_gain": 0.7 },
+  "faith":     { "desecration": -0.9, "pilgrimage": 0.6, "mercy": 0.3 }
+}
